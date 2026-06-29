@@ -1,0 +1,96 @@
+export interface Sale {
+  id: string;
+  value: number;
+  date: string;
+  note?: string;
+}
+
+export interface Avatar {
+  name: string;
+  idealAudience: string;
+  age: string;
+  gender: string;
+  profession: string;
+  income: string;
+  city: string;
+  country: string;
+  interests: string[];
+  pains: string[];
+  dreams: string[];
+}
+
+export interface Research {
+  avatar: Avatar;
+  objections: string[];
+  tomDeVoz: string;
+  palavrasConvertem: string[];
+  promessas: string[];
+  beneficios: string[];
+  argumentos: string[];
+}
+
+export interface Community {
+  name: string;
+  description: string;
+  size: string;
+}
+
+export interface OutreachGroup {
+  category: string;
+  communities: Community[];
+  templateMessage: string;
+}
+
+export interface Chapter {
+  title: string;
+  content: string;
+}
+
+export interface EbookContent {
+  title: string;
+  subtitle: string;
+  summary: string;
+  introduction: string;
+  conclusion: string;
+  cta: string;
+  chapters: Chapter[];
+}
+
+export interface ProjectMilestones {
+  ebookCreated: boolean;
+  researchCompleted: boolean;
+  messagesReady: boolean;
+  communitiesAnalyzed: boolean;
+  firstPromoDone: boolean;
+  firstSaleRegistered: boolean;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  niche: string;
+  objective: string;
+  pages: number;
+  language: string;
+  coverUrl: string;
+  createdAt: string;
+  ebook: EbookContent;
+  research: Research;
+  x1: {
+    facebook: OutreachGroup;
+    telegram: OutreachGroup;
+    whatsapp: OutreachGroup;
+    discord: OutreachGroup;
+    reddit: OutreachGroup;
+    forums: OutreachGroup;
+  };
+  milestones: ProjectMilestones;
+  sales: Sale[];
+}
+
+export interface UserStats {
+  totalEbooks: number;
+  activeProjects: number;
+  totalRevenue: number;
+  monthlyGoal: number;
+}

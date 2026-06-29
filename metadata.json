@@ -1,0 +1,6 @@
+{
+  "name": "NEXUS",
+  "description": "SaaS premium para estruturação e geração completa de ebooks comerciais de alta conversão.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
