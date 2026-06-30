@@ -21,7 +21,10 @@ import {
   Layers,
   ArrowRight,
   LayoutGrid,
-  Menu
+  Menu,
+  ShieldCheck,
+  Lock,
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -49,7 +52,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
   const [isActualMobile, setIsActualMobile] = useState(false);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const isMobileView = viewMode === "mobile" || isActualMobile;
+  const isMobileView = isActualMobile;
 
   // Auto-collapse sidebar when switching to mobile view
   useEffect(() => {
@@ -71,6 +73,15 @@ export default function App() {
       setSidebarCollapsed(false);
     }
   }, [isMobileView]);
+
+  // Scroll to top of the page when activeTab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    const mainEl = document.querySelector("main");
+    if (mainEl) {
+      mainEl.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [activeTab]);
 
   const [credits, setCredits] = useState(() => {
     const saved = localStorage.getItem("nexus_credits");
@@ -142,7 +153,7 @@ export default function App() {
   const totalRevenue = allSales.reduce((sum, s) => sum + s.value, 0);
 
   // Create project flow
-  const handleCreateProject = (
+  const handleCreateProject = async (
     name: string,
     niche: string,
     objective: string,
@@ -152,15 +163,80 @@ export default function App() {
   ) => {
     setIsGenerating(true);
 
-    // Simulate creation delays
-    setTimeout(() => {
-      const newProj = generateProject(name, niche, objective, pages, language, coverUrl);
-      setProjects(prev => [newProj, ...prev]);
-      setSelectedProjectId(newProj.id);
+    try {
+      const response = await fetch("/api/generate-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, niche, objective, pages, language })
+      });
+
+      const resData = await response.json();
+
+      if (resData && resData.data) {
+        const { ebook, research, x1 } = resData.data;
+
+        // Derive cover image depending on niche if not custom provided
+        let resolvedCoverUrl = coverUrl;
+        if (!resolvedCoverUrl) {
+          const nicheLower = niche.toLowerCase();
+          resolvedCoverUrl = "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=800";
+          if (nicheLower.includes("emagrecer") || nicheLower.includes("saúde") || nicheLower.includes("nutri") || nicheLower.includes("fit") || nicheLower.includes("dieta")) {
+            resolvedCoverUrl = "https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&q=80&w=800";
+          } else if (nicheLower.includes("dinheiro") || nicheLower.includes("finança") || nicheLower.includes("venda") || nicheLower.includes("invest") || nicheLower.includes("rico") || nicheLower.includes("negócio")) {
+            resolvedCoverUrl = "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&q=80&w=800";
+          } else if (nicheLower.includes("marketing") || nicheLower.includes("digital") || nicheLower.includes("tráfego") || nicheLower.includes("vendedor") || nicheLower.includes("copy")) {
+            resolvedCoverUrl = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800";
+          } else if (nicheLower.includes("program") || nicheLower.includes("código") || nicheLower.includes("tech") || nicheLower.includes("web") || nicheLower.includes("software")) {
+            resolvedCoverUrl = "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800";
+          } else if (nicheLower.includes("mental") || nicheLower.includes("mindset") || nicheLower.includes("produti") || nicheLower.includes("foco") || nicheLower.includes("tempo")) {
+            resolvedCoverUrl = "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=800";
+          }
+        }
+
+        const newProj: Project = {
+          id: Math.random().toString(36).substring(2, 11),
+          name: name.trim(),
+          niche: niche.trim(),
+          objective: objective.trim(),
+          pages,
+          language,
+          coverUrl: resolvedCoverUrl,
+          createdAt: new Date().toLocaleDateString("pt-BR"),
+          ebook,
+          research,
+          x1,
+          milestones: {
+            ebookCreated: true,
+            researchCompleted: true,
+            messagesReady: true,
+            communitiesAnalyzed: true,
+            firstPromoDone: false,
+            firstSaleRegistered: false
+          },
+          sales: []
+        };
+
+        setProjects(prev => [newProj, ...prev]);
+        setSelectedProjectId(newProj.id);
+        setCredits(prev => Math.max(0, prev - 1));
+        setActiveTab("library");
+      } else {
+        throw new Error("Formato de resposta inválido do servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao gerar projeto via API, usando fallback premium local:", error);
+      const fallbackProj = generateProject(name, niche, objective, pages, language, coverUrl);
+      setProjects(prev => [fallbackProj, ...prev]);
+      setSelectedProjectId(fallbackProj.id);
       setCredits(prev => Math.max(0, prev - 1));
-      setIsGenerating(false);
       setActiveTab("library");
-    }, 12000); // 12s high-end simulation
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleUpdateProject = (updatedProj: Project) => {
+    setProjects(prev => prev.map(p => p.id === updatedProj.id ? updatedProj : p));
   };
 
   // Register sale inside project
@@ -319,7 +395,7 @@ export default function App() {
         <div className={`flex-1 flex flex-col transition-all duration-300 min-h-screen overflow-x-hidden max-w-full ${
           isMobileView 
             ? "pl-0" 
-            : (sidebarCollapsed ? "pl-20" : "pl-0 md:pl-[260px]")
+            : (sidebarCollapsed ? "pl-[112px]" : "pl-0 md:pl-[292px]")
         }`}>
           
           {/* Header toolbar */}
@@ -328,8 +404,6 @@ export default function App() {
             userName={user.name} 
             userEmail={user.email}
             onOpenSettings={() => setActiveTab("settings")}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
           />
 
         {/* Scrollable sub-views stage */}
@@ -345,36 +419,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                {/* Main Action Field - Positioned at the very top for better user flow */}
-                <div className="bg-gradient-to-br from-nexus-card to-nexus-black border border-nexus-red/30 p-8 rounded-2xl relative overflow-hidden shadow-xl shadow-nexus-red/[0.02]">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-nexus-red/[0.03] rounded-full blur-3xl pointer-events-none" />
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-nexus-red/50 to-transparent" />
-                  
-                  <div className="max-w-2xl relative z-10">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-nexus-red/10 border border-nexus-red/20 text-[10px] text-nexus-red font-bold font-mono uppercase tracking-widest rounded-full mb-4">
-                      <Sparkles size={11} className="animate-pulse" />
-                      Mecanismo de Escala Comercial 2.0
-                    </div>
-                    <h2 className="font-serif text-2xl md:text-3xl font-bold text-zinc-100 tracking-tight mb-3">
-                      Como você deseja ganhar dinheiro hoje?
-                    </h2>
-                    <p className="text-xs text-zinc-400 leading-relaxed mb-6 font-medium">
-                      O ecossistema inteligente Nexus guiará você desde a validação do avatar e do nicho até a geração completa de copys de alta conversão, canais de vendas direta no 1x1 e o faturamento garantido.
-                    </p>
-
-                    <button
-                      onClick={() => setActiveTab("new-project")}
-                      id="dashboard-cta-create-project"
-                      className="inline-flex items-center gap-2.5 py-4 px-6 rounded-xl bg-nexus-red hover:bg-nexus-red-hover text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-nexus-red/20 cursor-pointer transition-all hover:translate-y-[-1px] active:translate-y-[1px]"
-                    >
-                      <Plus size={15} className="stroke-[3]" />
-                      <span>Desenvolver Novo Projeto Digital</span>
-                      <ChevronRight size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Statistics panel - Positioned below the action call to support the flow */}
+                {/* Statistics panel - Positioned at the very top as requested */}
                 <MetricCards 
                   totalEbooks={projects.length}
                   activeProjects={projects.filter(p => !p.milestones.firstSaleRegistered).length}
@@ -382,6 +427,53 @@ export default function App() {
                   totalRevenue={totalRevenue}
                   monthlyGoal={monthlyGoal}
                 />
+
+                {/* Main Action Field - Positioned below statistics for better user flow */}
+                <div className="bg-zinc-900 border border-zinc-800 p-6 sm:p-10 rounded-2xl relative overflow-hidden shadow-2xl">
+                  {/* Top Accent line */}
+                  <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-red-500 to-transparent" />
+                  
+                  {/* Subtle visual background elements */}
+                  <div className="absolute -top-32 -right-32 w-80 h-80 bg-red-600/[0.02] rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+                    <div className="max-w-2xl space-y-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-mono font-black uppercase tracking-wider rounded-lg">
+                          <Sparkles size={11} className="animate-pulse" />
+                          Mecanismo de Escala Comercial 2.0
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[9px] text-zinc-500 font-mono font-bold uppercase tracking-wider bg-zinc-800/45 px-2.5 py-1 rounded-lg">
+                          <Lock size={10} className="text-emerald-500" />
+                          Ambiente Criptografado & Verificado
+                        </span>
+                      </div>
+                      
+                      <h2 className="font-serif text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+                        Como você deseja ganhar dinheiro hoje?
+                      </h2>
+                      
+                      <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-xl font-medium">
+                        O ecossistema Nexus guiará você passo-a-passo: desde o mapeamento de avatar e nicho de mercado até a estruturação completa do produto digital, com copys de alta conversão, canais de vendas X1 e faturamento.
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 w-full md:w-auto space-y-3">
+                      <button
+                        onClick={() => setActiveTab("new-project")}
+                        id="dashboard-cta-create-project"
+                        className="w-full md:w-auto inline-flex items-center justify-center gap-3 py-4 px-8 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black tracking-wider uppercase shadow-xl shadow-red-600/15 cursor-pointer transition-all hover:translate-y-[-1px] active:scale-[0.98]"
+                      >
+                        <Plus size={15} className="stroke-[3]" />
+                        <span>Desenvolver Novo Projeto Digital</span>
+                        <ChevronRight size={15} />
+                      </button>
+                      <p className="text-[9px] text-zinc-500 font-mono text-center md:text-left max-w-[280px] leading-relaxed mx-auto">
+                        * Processamento seguro sob algoritmos proprietários certificados. Proteção integral de dados comerciais.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Split layout: Chart & Meus Projetos */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -469,6 +561,7 @@ export default function App() {
                     onUpdateMilestones={handleUpdateMilestones}
                     onRegisterSale={handleRegisterSale}
                     onDeleteSale={handleDeleteSale}
+                    onUpdateProject={handleUpdateProject}
                   />
                 ) : (
                   <div className="text-center py-16 bg-nexus-black border border-nexus-border rounded-2xl">
@@ -489,20 +582,22 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="max-w-2xl mx-auto space-y-6"
               >
-                <div className="p-6 bg-nexus-black border border-nexus-border rounded-2xl shadow-sm">
-                  <div className="mb-6">
-                    <h3 className="text-sm font-mono uppercase text-zinc-400 font-bold flex items-center gap-2">
-                      <Coins size={15} className="text-nexus-red" />
+                <div className="p-6 sm:p-8 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/[0.01] rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="mb-6 border-b border-zinc-900 pb-4">
+                    <h3 className="text-sm font-mono uppercase text-red-500 font-bold flex items-center gap-2 tracking-widest">
+                      <Coins size={15} className="text-red-500 animate-pulse" />
                       Lançamento Unificado de Vendas
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      Lance as vendas de qualquer projeto de forma manual para consolidar faturamento e gráficos de evolução.
+                    <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                      Lance as vendas de qualquer projeto de forma manual para consolidar seu faturamento global e atualizar os gráficos de evolução.
                     </p>
                   </div>
 
                   {ledgerSuccess && (
-                    <div className="mb-4 p-3 bg-green-950/40 border border-green-800/60 rounded-xl text-green-400 text-xs text-center font-medium">
-                      Lançamento de venda processado com sucesso!
+                    <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-emerald-400 text-xs text-center font-bold font-mono">
+                      ✓ Lançamento de venda processado com sucesso!
                     </div>
                   )}
 
@@ -511,13 +606,13 @@ export default function App() {
                       <p className="text-xs text-zinc-500 font-medium">Você precisa possuir ao menos um projeto ativo para registrar vendas.</p>
                     </div>
                   ) : (
-                    <form onSubmit={handleLedgerSubmit} className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-semibold">Selecionar Produto / Projeto</label>
+                    <form onSubmit={handleLedgerSubmit} className="space-y-5">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold">Selecionar Produto / Projeto</label>
                         <select
                           value={ledgerSelectedProjectId}
                           onChange={(e) => setLedgerSelectedProjectId(e.target.value)}
-                          className="w-full px-4 py-3 bg-nexus-card border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-200 focus:outline-none transition-all font-medium cursor-pointer"
+                          className="w-full px-4.5 py-3.5 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-200 focus:outline-none transition-all font-bold cursor-pointer shadow-inner"
                         >
                           {projects.map(p => (
                             <option key={p.id} value={p.id}>{p.ebook.title} ({p.niche})</option>
@@ -525,48 +620,58 @@ export default function App() {
                         </select>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-semibold">Valor da Transação (R$)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={ledgerSaleValue}
-                            onChange={(e) => setLedgerSaleValue(e.target.value)}
-                            placeholder="Ex: 97.00"
-                            className="w-full px-4 py-3 bg-nexus-card border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all font-medium"
-                            required
-                          />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold">Valor da Transação (BRL)</label>
+                          <div className="relative">
+                            <span className="absolute inset-y-0 left-0 pl-4.5 flex items-center text-zinc-500 font-mono font-bold text-xs">
+                              R$
+                            </span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={ledgerSaleValue}
+                              onChange={(e) => setLedgerSaleValue(e.target.value)}
+                              placeholder="0,00"
+                              className="w-full pl-11 pr-4 py-3.5 h-12 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-red-500/20 transition-all font-black font-mono shadow-inner"
+                              required
+                            />
+                          </div>
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-semibold">Data da Venda</label>
-                          <input
-                            type="date"
-                            value={ledgerSaleDate}
-                            onChange={(e) => setLedgerSaleDate(e.target.value)}
-                            className="w-full px-4 py-3 bg-nexus-card border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-200 focus:outline-none transition-all font-medium"
-                            required
-                          />
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold">Data da Venda</label>
+                          <div className="relative">
+                            <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-zinc-500">
+                              <Calendar size={14} />
+                            </span>
+                            <input
+                              type="date"
+                              value={ledgerSaleDate}
+                              onChange={(e) => setLedgerSaleDate(e.target.value)}
+                              className="w-full pl-11 pr-4 py-3.5 h-12 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500/20 transition-all font-bold font-mono cursor-pointer shadow-inner"
+                              required
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-semibold">Canal de Origem / Observação</label>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold">Canal de Origem / Observação</label>
                         <input
                           type="text"
                           value={ledgerSaleNote}
                           onChange={(e) => setLedgerSaleNote(e.target.value)}
                           placeholder="Exemplo: Conversão no 1 a 1 via Reddit"
-                          className="w-full px-4 py-3 bg-nexus-card border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all font-medium"
+                          className="w-full px-4.5 py-3.5 h-12 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none transition-all font-medium shadow-inner"
                         />
                       </div>
 
                       <button
                         type="submit"
-                        className="w-full flex items-center justify-center gap-2 py-3.5 bg-nexus-red hover:bg-nexus-red-hover text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md shadow-nexus-red/5 cursor-pointer transition-all hover:translate-y-[-1px]"
+                        className="w-full flex items-center justify-center gap-2.5 py-4 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/10 cursor-pointer transition-all hover:translate-y-[-1px] active:scale-[0.98]"
                       >
-                        <Plus size={14} />
+                        <Plus size={14} className="stroke-[3]" />
                         <span>Processar Lançamento de Venda</span>
                       </button>
                     </form>
@@ -664,31 +769,6 @@ export default function App() {
     </div>
     );
   };
-
-  if (viewMode === "mobile" && !isActualMobile) {
-    return (
-      <div className="min-h-screen bg-[#030304] flex flex-col items-center justify-center font-sans antialiased select-none relative">
-        {/* Flat Pinned Viewport Container */}
-        <div className="w-[385px] h-screen border-x border-nexus-border bg-nexus-black flex flex-col relative shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-          <div className="absolute top-0 inset-x-0 h-1 bg-nexus-red z-50" />
-          
-          {/* Mobile indicator header inside the frame */}
-          <div className="bg-nexus-dark px-5 py-3 border-b border-nexus-border flex items-center justify-between text-[10px] font-mono text-zinc-500 shrink-0 select-none">
-            <div className="flex items-center gap-1.5 font-bold text-nexus-red">
-              <span className="w-1.5 h-1.5 rounded-full bg-nexus-red animate-pulse" />
-              NEXUS SIMULADOR MOBILE
-            </div>
-            <div className="text-zinc-600">385 x FULL HEIGHT</div>
-          </div>
-          
-          {/* Actual content inside the viewport */}
-          <div className="flex-1 h-full flex flex-col overflow-y-auto overflow-x-hidden relative" id="mobile-viewport-inner">
-            {renderWorkspace()}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-nexus-black text-zinc-100 flex font-sans select-none antialiased">

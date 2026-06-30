@@ -1,4 +1,5 @@
-import { motion } from "motion/react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   LayoutDashboard, 
   FolderPlus, 
@@ -9,7 +10,8 @@ import {
   ShieldAlert,
   ChevronLeft,
   ChevronRight,
-  Zap
+  Zap,
+  MoreVertical
 } from "lucide-react";
 
 interface SidebarProps {
@@ -33,13 +35,13 @@ export default function Sidebar({
   userName = "JD",
   isMobileView = false
 }: SidebarProps) {
+  const [showUserMenu, setShowUserMenu] = useState(false);
   
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "new-project", label: "Novo Projeto", icon: FolderPlus },
     ...(hasActiveProject ? [{ id: "library", label: "Biblioteca Ativa", icon: Library }] : []),
     { id: "sales-ledger", label: "Registrar Venda", icon: CircleDollarSign },
-    { id: "settings", label: "Configurações", icon: Settings },
   ];
 
   const getInitials = (name: string) => {
@@ -55,43 +57,40 @@ export default function Sidebar({
     <motion.aside
       animate={
         isMobileView 
-          ? { x: collapsed ? "-100%" : "0%", width: "260px" } 
+          ? { x: collapsed ? "-110%" : "0%", width: "260px" } 
           : { x: "0%", width: collapsed ? "80px" : "260px" }
       }
       transition={{ duration: 0.3, ease: "easeInOut" }}
       id="sidebar-container"
-      className={`${isMobileView ? "absolute h-full z-50 shadow-[5px_0_30px_rgba(0,0,0,0.6)]" : "fixed h-screen z-40"} inset-y-0 left-0 flex flex-col border-r border-nexus-border bg-nexus-dark text-zinc-100`}
+      className={`fixed top-4 bottom-4 left-4 z-40 flex flex-col border border-nexus-border bg-nexus-dark text-zinc-100 shadow-2xl rounded-2xl ${
+        isMobileView ? "z-50 shadow-[5px_5px_30px_rgba(0,0,0,0.6)]" : ""
+      }`}
     >
       {/* Brand Logo Header */}
-      <div className="flex flex-col justify-center h-24 px-6 border-b border-nexus-border relative">
+      <div className="flex items-center h-16 px-4 border-b border-nexus-border relative">
         {(!collapsed || isMobileView) && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col"
+            className="flex items-center gap-2.5"
           >
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_15px_rgba(255,31,61,0.45)] border border-nexus-red/20 shrink-0">
-                <Zap size={15} className="text-white fill-white animate-pulse" />
-              </div>
-              <span className="font-display text-2xl tracking-tighter font-black text-white">
+            <div className="flex items-center justify-center w-7.5 h-7.5 rounded-lg bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_15px_rgba(255,31,61,0.4)] border border-nexus-red/20 shrink-0">
+              <Zap size={14} className="text-white fill-white animate-pulse" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-display text-base tracking-tight font-black text-white leading-none">
                 NEXUS
               </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[9px] uppercase tracking-[0.25em] text-nexus-red font-extrabold font-mono">
-                PLATAFORMA
-              </span>
-              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-[8px] font-bold font-mono text-nexus-red border border-nexus-red/30 uppercase tracking-wider">
-                EXCLUSIVA
+              <span className="text-[7.5px] tracking-[0.15em] text-nexus-red font-black font-mono uppercase mt-0.5">
+                PLATAFORMA EXCLUSIVA
               </span>
             </div>
           </motion.div>
         )}
 
         {collapsed && !isMobileView && (
-          <div className="mx-auto flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_15px_rgba(255,31,61,0.45)] border border-nexus-red/20 transition-all duration-300 hover:scale-105 cursor-pointer">
-            <Zap size={18} className="text-white fill-white animate-pulse" />
+          <div className="mx-auto flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_12px_rgba(255,31,61,0.4)] border border-nexus-red/20 transition-all duration-300 hover:scale-105 cursor-pointer">
+            <Zap size={14} className="text-white fill-white animate-pulse" />
           </div>
         )}
 
@@ -100,7 +99,7 @@ export default function Sidebar({
           <button
             onClick={() => setCollapsed(true)}
             id="btn-close-mobile-drawer"
-            className="absolute right-4 top-8 p-1.5 rounded-lg border border-nexus-border hover:border-nexus-red/50 text-zinc-400 hover:text-nexus-red transition-all cursor-pointer"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg border border-nexus-border hover:border-nexus-red/50 text-zinc-400 hover:text-nexus-red transition-all cursor-pointer"
             title="Fechar Menu"
           >
             <ChevronLeft size={16} />
@@ -112,7 +111,7 @@ export default function Sidebar({
           <button 
             onClick={() => setCollapsed(!collapsed)}
             id="btn-toggle-sidebar"
-            className="absolute right-[-14px] top-9 hidden md:flex items-center justify-center w-7 h-7 rounded-full bg-nexus-card border border-nexus-border hover:border-nexus-red text-zinc-400 hover:text-nexus-red shadow-md cursor-pointer transition-colors"
+            className="absolute right-[-14px] top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-7 h-7 rounded-full bg-nexus-card border border-nexus-border hover:border-nexus-red text-zinc-400 hover:text-nexus-red shadow-md cursor-pointer transition-colors"
           >
             {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
@@ -120,7 +119,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+      <nav className="flex-none px-3 py-3 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -129,16 +128,16 @@ export default function Sidebar({
               key={item.id}
               id={`sidebar-link-${item.id}`}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-4.5 px-4 py-3 rounded-lg text-sm font-semibold tracking-wide transition-all duration-200 relative group cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all duration-200 relative group cursor-pointer ${
                 isActive 
-                  ? "text-nexus-red bg-nexus-red/10 border border-nexus-red/20 shadow-sm shadow-nexus-red/5" 
+                  ? "text-white bg-red-600 border border-red-500 shadow-md shadow-red-600/30" 
                   : "text-zinc-400 hover:text-zinc-100 hover:bg-nexus-card/50"
               }`}
             >
-              <Icon size={18} className={isActive ? "text-nexus-red" : "text-zinc-400 group-hover:text-zinc-200 transition-colors"} />
+              <Icon size={16} className={isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200 transition-colors"} />
               {!collapsed && (
                 <motion.span 
-                   initial={{ opacity: 0 }}
+                  initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="truncate"
                 >
@@ -156,44 +155,83 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Footer Section: Account and Logout unified */}
-      <div className="mt-auto border-t border-nexus-border bg-nexus-black/40">
+      {/* Spacer to push controls to the bottom */}
+      <div className="flex-1" />
+
+      {/* Footer Section: Config & Logout unified with tight spacing */}
+      <div className="border-t border-nexus-border/40 bg-nexus-black/10 p-3 flex flex-col gap-2 rounded-b-2xl">
         {!collapsed && (
-          <div className="p-4 flex flex-col gap-3">
-            <div className="bg-nexus-card p-3 rounded-xl border border-nexus-border/60 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-nexus-red/15 border border-nexus-red/30 flex items-center justify-center font-black text-nexus-red font-display text-sm shrink-0 shadow-sm shadow-nexus-red/5">
-                {getInitials(userName)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold text-zinc-200 truncate">{userName}</div>
-                <div className="text-[10px] text-nexus-red font-bold font-mono tracking-wider flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-nexus-red animate-pulse" />
-                  Membro Premium
+          <>
+            {/* User Account Bar */}
+            <div className="flex items-center justify-between gap-2.5 bg-nexus-card/40 p-2 rounded-xl border border-nexus-border/40">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="w-7 h-7 rounded-full bg-red-600/10 border border-red-500/20 flex items-center justify-center font-bold text-red-500 font-display text-[10px] shrink-0 shadow-sm shadow-red-500/5">
+                  {getInitials(userName)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold text-zinc-200 truncate leading-tight">{userName}</div>
+                  <div className="text-[8px] text-red-500 font-black font-mono tracking-wider mt-0.5 uppercase">
+                    Premium
+                  </div>
                 </div>
               </div>
             </div>
-            <button
-              onClick={onLogout}
-              id="sidebar-logout-btn"
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider text-white bg-nexus-red/10 border border-nexus-red/20 hover:bg-nexus-red hover:text-white transition-all duration-200 cursor-pointer"
-            >
-              <LogOut size={14} />
-              <span>Sair da Conta</span>
-            </button>
-          </div>
+
+            {/* Compact Grouped Settings and Logout Panel */}
+            <div className="flex items-center gap-1.5 bg-nexus-card/20 p-1 rounded-xl border border-nexus-border/30">
+              <button
+                onClick={() => setActiveTab("settings")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === "settings"
+                    ? "text-white bg-red-600 border border-red-500 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/80 border border-transparent"
+                }`}
+                title="Configurações da Plataforma"
+              >
+                <Settings size={11} />
+                <span>Ajustes</span>
+              </button>
+              
+              <button
+                onClick={onLogout}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-zinc-950/40 hover:bg-red-950/40 border border-zinc-800 hover:border-red-900/40 text-zinc-400 hover:text-red-400 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider transition-all cursor-pointer"
+                title="Sair da Conta"
+              >
+                <LogOut size={11} />
+                <span>Sair</span>
+              </button>
+            </div>
+          </>
         )}
         {collapsed && (
-          <div className="p-3 flex flex-col gap-2 items-center">
-            <div className="w-9 h-9 rounded-full bg-nexus-red/15 border border-nexus-red/30 flex items-center justify-center font-black text-nexus-red font-display text-sm shrink-0 shadow-sm shadow-nexus-red/5" title={userName}>
-              {getInitials(userName)}
-            </div>
+          <div className="flex flex-col items-center gap-2 py-1">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer group relative shadow-sm ${
+                activeTab === "settings"
+                  ? "text-white bg-red-600 border-red-500"
+                  : "text-zinc-400 hover:text-white bg-nexus-card border-nexus-border/80 hover:bg-zinc-850"
+              }`}
+              title="Configurações"
+            >
+              <Settings size={13} />
+              {/* Tooltip */}
+              <div className="absolute left-12 scale-0 group-hover:scale-100 transition-transform bg-nexus-card text-zinc-100 text-xs px-2 py-1 rounded border border-nexus-border whitespace-nowrap z-50 shadow-xl font-medium">
+                Configurações
+              </div>
+            </button>
+
             <button
               onClick={onLogout}
-              id="sidebar-logout-btn"
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-nexus-red hover:bg-nexus-red/10 transition-all duration-200 cursor-pointer"
+              id="sidebar-logout-btn-collapsed"
+              className="w-8 h-8 rounded-lg bg-nexus-card border border-nexus-border/80 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-red-600 hover:border-red-500 transition-all cursor-pointer group relative shadow-sm"
               title="Sair da Conta"
             >
-              <LogOut size={16} />
+              <LogOut size={13} />
+              {/* Tooltip */}
+              <div className="absolute left-12 scale-0 group-hover:scale-100 transition-transform bg-nexus-card text-zinc-100 text-xs px-2 py-1 rounded border border-nexus-border whitespace-nowrap z-50 shadow-xl font-medium">
+                Sair da Conta
+              </div>
             </button>
           </div>
         )}
