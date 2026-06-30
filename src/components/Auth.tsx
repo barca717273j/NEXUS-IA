@@ -8,9 +8,9 @@ interface AuthProps {
 
 export default function Auth({ onSuccess }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
-  const [name, setName] = useState("Rian Nilton");
-  const [email, setEmail] = useState("riannilton71@gmail.com");
-  const [password, setPassword] = useState("••••••••");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
