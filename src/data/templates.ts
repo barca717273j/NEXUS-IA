@@ -295,7 +295,8 @@ export function generateProject(
   objective: string,
   pages: number,
   language: string,
-  customCoverUrl?: string
+  customCoverUrl?: string,
+  projType: "ebook" | "landing_page" | "site" = "ebook"
 ): Project {
   // Clean inputs
   const cleanName = name.trim() || "Nova Ideia de Ebook";
@@ -453,9 +454,63 @@ export function generateProject(
     }
   };
 
+  const landingPageContent = {
+    productName: cleanName,
+    niche: cleanNiche,
+    objective: cleanObjective,
+    headline: `Descubra o Método Prático para Dominar ${cleanNiche} e Alcançar seu Objetivo de ${cleanObjective} de Forma Rápida`,
+    subheadline: `O plano tático passo a passo de resposta direta desenhado exclusivamente para transformar sua operação e acelerar seus resultados práticos sem enrolação ou teorias complexas.`,
+    benefits: [
+      "Metodologia 100% prática focada em resultados reais e imediatos",
+      "Acesso imediato aos roteiros exatos de abordagem e fechamento",
+      "Eliminação total da sobrecarga de teorias ineficientes e caras"
+    ],
+    problems: [
+      `Frustração extrema por não conseguir evoluir de forma consistente em ${cleanNiche}`,
+      "Sensação de estar perdido em meio a dezenas de informações confusas e gurus",
+      "Dificuldade de reter e fechar clientes de alto valor de forma constante"
+    ],
+    solutions: [
+      `O método estruturado '${cleanName}' que resolve de forma cirúrgica as dores do público`,
+      "Checklists operacionais compactos de 15 minutos por dia que cabem perfeitamente na sua rotina",
+      "Garantia incondicional de aprendizado com suporte direto via chat 1x1"
+    ],
+    testimonials: [
+      { name: "Mariana Souza", role: "Mentora de Negócios", text: "Aplicar este método foi um divisor de águas na minha operação. Consegui estruturar minha abordagem e fechar meus primeiros clientes de forma super natural!" },
+      { name: "Thiago Mendes", role: "Produtor Digital", text: "Excelente material. Vai direto ao ponto, sem enrolações acadêmicas desnecessárias. O checklist diário de 15 minutos salvou minha rotina." }
+    ],
+    guarantee: "Garantia incondicional de 7 dias. Se você não notar uma evolução clara ou achar que o método não é para você, devolvemos 100% do seu investimento de forma simples e direta, sem perguntas.",
+    faqs: [
+      { question: "Para quem é indicado este método?", answer: `Para qualquer pessoa que queira se destacar em ${cleanNiche}, seja um iniciante absoluto ou alguém que já atua no mercado e quer refinar seu funil.` },
+      { question: "Como funciona a garantia?", answer: "Você tem 7 dias completos para testar o material. Se não gostar, basta solicitar o reembolso que processamos imediatamente." }
+    ],
+    cta: "Quero Garantir Meu Acesso Agora Com Desconto"
+  };
+
+  const siteContent = {
+    name: cleanName,
+    niche: cleanNiche,
+    objective: cleanObjective,
+    heroTitle: `A Solução Definitiva para Dominar ${cleanNiche}`,
+    heroSubtitle: `Capacitando você a atingir seu objetivo de ${cleanObjective.toLowerCase()} com autoridade, clareza e resultados reais.`,
+    aboutText: `Nossa missão é desmistificar e simplificar o aprendizado prático em ${cleanNiche}. Acreditamos que o desenvolvimento de habilidades de alta performance deve ser acessível, prático e orientado à ação imediata, eliminando o excesso de teoria e focando exclusivamente no que gera valor real e faturamento.`,
+    contactEmail: "suporte@nexusoperacoes.com",
+    contactPhone: "+55 (11) 99999-9999",
+    faqs: [
+      { question: "Como funciona o suporte?", answer: "Oferecemos canal de atendimento e suporte exclusivo por e-mail ou WhatsApp para responder qualquer dúvida de forma rápida." },
+      { question: "Quais serviços vocês oferecem?", answer: `Oferecemos treinamentos especializados, ebooks operacionais de alta qualidade, checklists táticos e consultorias personalizadas focadas em ${cleanNiche}.` }
+    ],
+    features: [
+      { title: "Metodologia Prática", description: "Esqueça conceitos puramente acadêmicos. Focamos no que de fato gera resultados no dia a dia." },
+      { title: "Suporte Dedicado", description: "Equipe de apoio ativa para tirar suas dúvidas e garantir que você não fique travado." },
+      { title: "Material de Apoio", description: "Planilhas, roteiros de conversa e copys testadas prontas para aplicação imediata." }
+    ]
+  };
+
   const project: Project = {
     id: generateId(),
-    name: cleanNiche,
+    type: projType,
+    name: cleanName,
     niche: cleanNiche,
     objective: cleanObjective,
     pages: pagesCount,
@@ -472,9 +527,11 @@ export function generateProject(
       chapters
     },
     research,
+    landingPage: projType === "landing_page" ? landingPageContent : undefined,
+    site: projType === "site" ? siteContent : undefined,
     x1,
     milestones: {
-      ebookCreated: true,
+      ebookCreated: projType === "ebook",
       researchCompleted: true,
       messagesReady: true,
       communitiesAnalyzed: true,

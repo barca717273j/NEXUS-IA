@@ -4,6 +4,12 @@ import {
   Project, 
   Sale 
 } from "../types";
+import LandingPageModule from "./LandingPageModule";
+import SiteModule from "./SiteModule";
+import ResearchModule from "./ResearchModule";
+import X1Module from "./X1Module";
+import MessagesModule from "./MessagesModule";
+import SettingsModule from "./SettingsModule";
 import { 
   BookOpen, 
   FileText, 
@@ -32,7 +38,12 @@ import {
   MessageSquare,
   Lock,
   ListTodo,
-  Coins
+  Coins,
+  Layout,
+  Globe,
+  Settings,
+  Upload,
+  Image
 } from "lucide-react";
 
 interface ProjectTabsProps {
@@ -41,16 +52,280 @@ interface ProjectTabsProps {
   onRegisterSale: (sale: Omit<Sale, "id">) => void;
   onDeleteSale?: (saleId: string) => void;
   onUpdateProject?: (project: Project) => void;
+  onBack?: () => void;
 }
+
+function renderLineSpans(line: string) {
+  const parts = line.split(/\*\*([^*]+)\*\*/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return <strong key={i} className="text-white font-extrabold">{part}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderContent(text: string) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return lines.map((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={idx} className="h-4" />;
+    
+    // Headings
+    if (trimmed.startsWith("### ")) {
+      return (
+        <h4 key={idx} className="text-sm font-bold text-zinc-100 font-mono tracking-wide uppercase mt-6 mb-2">
+          {trimmed.slice(4)}
+        </h4>
+      );
+    }
+    if (trimmed.startsWith("## ")) {
+      return (
+        <h3 key={idx} className="text-lg font-bold text-white font-serif tracking-tight mt-8 mb-3 border-b border-zinc-850/60 pb-1.5">
+          {trimmed.slice(3)}
+        </h3>
+      );
+    }
+    if (trimmed.startsWith("# ")) {
+      return (
+        <h2 key={idx} className="text-xl font-serif font-black text-white tracking-tight mt-10 mb-4">
+          {trimmed.slice(2)}
+        </h2>
+      );
+    }
+    
+    // Blockquote
+    if (trimmed.startsWith("> ")) {
+      return (
+        <blockquote key={idx} className="pl-4 border-l-2 border-red-500 italic my-4 text-zinc-400 bg-red-500/[0.01] py-2 pr-2 rounded-r">
+          {renderLineSpans(trimmed.slice(2))}
+        </blockquote>
+      );
+    }
+    
+    // Bullet list items
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      return (
+        <li key={idx} className="ml-4 list-disc text-zinc-300 leading-relaxed pl-1 my-1.5">
+          {renderLineSpans(trimmed.slice(2))}
+        </li>
+      );
+    }
+    
+    // Numbered list items
+    const numMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+    if (numMatch) {
+      return (
+        <li key={idx} className="ml-4 list-decimal text-zinc-300 leading-relaxed pl-1 my-1.5">
+          <span className="font-bold text-red-500 mr-1">{numMatch[1]}.</span>
+          {renderLineSpans(numMatch[2])}
+        </li>
+      );
+    }
+    
+    // Regular paragraph
+    return (
+      <p key={idx} className="indent-6 text-zinc-300 leading-relaxed text-justify mb-4 whitespace-pre-line">
+        {renderLineSpans(trimmed)}
+      </p>
+    );
+  });
+}
+
+function renderLineSpansPrint(line: string) {
+  const parts = line.split(/\*\*([^*]+)\*\*/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return <strong key={i} className="text-zinc-950 font-bold">{part}</strong>;
+    }
+    return part;
+  });
+}
+
+function renderContentPrint(text: string) {
+  if (!text) return null;
+  const lines = text.split("\n");
+  return lines.map((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed) return <div key={idx} className="h-4" />;
+    
+    // Headings
+    if (trimmed.startsWith("### ")) {
+      return (
+        <h4 key={idx} className="text-xs font-bold text-zinc-900 font-mono tracking-wide uppercase mt-4 mb-1">
+          {trimmed.slice(4)}
+        </h4>
+      );
+    }
+    if (trimmed.startsWith("## ")) {
+      return (
+        <h3 key={idx} className="text-base font-bold text-zinc-950 font-serif tracking-tight mt-6 mb-2 border-b border-zinc-200 pb-1">
+          {trimmed.slice(3)}
+        </h3>
+      );
+    }
+    if (trimmed.startsWith("# ")) {
+      return (
+        <h2 key={idx} className="text-lg font-serif font-black text-zinc-950 tracking-tight mt-8 mb-3">
+          {trimmed.slice(2)}
+        </h2>
+      );
+    }
+    
+    // Blockquote
+    if (trimmed.startsWith("> ")) {
+      return (
+        <blockquote key={idx} className="pl-4 border-l-2 border-red-600 italic my-3 text-zinc-600 bg-zinc-50 py-1.5 pr-2 rounded-r">
+          {renderLineSpansPrint(trimmed.slice(2))}
+        </blockquote>
+      );
+    }
+    
+    // Bullet list items
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      return (
+        <li key={idx} className="ml-4 list-disc text-zinc-800 leading-relaxed pl-1 my-1">
+          {renderLineSpansPrint(trimmed.slice(2))}
+        </li>
+      );
+    }
+    
+    // Numbered list items
+    const numMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+    if (numMatch) {
+      return (
+        <li key={idx} className="ml-4 list-decimal text-zinc-800 leading-relaxed pl-1 my-1">
+          <span className="font-bold text-red-600 mr-1">{numMatch[1]}.</span>
+          {renderLineSpansPrint(numMatch[2])}
+        </li>
+      );
+    }
+    
+    // Regular paragraph
+    return (
+      <p key={idx} className="indent-6 text-zinc-800 leading-relaxed text-justify mb-3 whitespace-pre-line">
+        {renderLineSpansPrint(trimmed)}
+      </p>
+    );
+  });
+}
+
+const renderCSSCover = (title: string, subtitle: string, niche: string, isMini: boolean = false) => {
+  // Determine gradient / colors based on niche
+  const nicheLower = (niche || "").toLowerCase();
+  let bgGradient = "from-zinc-900 to-black";
+  let accentColor = "text-zinc-400";
+  let borderColor = "border-zinc-800";
+  let iconGlow = "shadow-[0_0_20px_rgba(255,255,255,0.05)]";
+  let badgeBg = "bg-zinc-800/60";
+
+  if (nicheLower.includes("emagrecer") || nicheLower.includes("saúde") || nicheLower.includes("nutri") || nicheLower.includes("fit") || nicheLower.includes("dieta")) {
+    bgGradient = "from-emerald-950 to-zinc-950";
+    accentColor = "text-emerald-400";
+    borderColor = "border-emerald-500/30";
+    iconGlow = "shadow-[0_0_20px_rgba(16,185,129,0.15)]";
+    badgeBg = "bg-emerald-500/10";
+  } else if (nicheLower.includes("dinheiro") || nicheLower.includes("finança") || nicheLower.includes("venda") || nicheLower.includes("invest") || nicheLower.includes("rico") || nicheLower.includes("negócio")) {
+    bgGradient = "from-amber-950 via-zinc-950 to-neutral-950";
+    accentColor = "text-amber-400";
+    borderColor = "border-amber-500/30";
+    iconGlow = "shadow-[0_0_20px_rgba(245,158,11,0.15)]";
+    badgeBg = "bg-amber-500/10";
+  } else if (nicheLower.includes("marketing") || nicheLower.includes("digital") || nicheLower.includes("tráfego") || nicheLower.includes("vendedor") || nicheLower.includes("copy") || nicheLower.includes("escala")) {
+    bgGradient = "from-red-950 via-zinc-950 to-neutral-950";
+    accentColor = "text-red-500";
+    borderColor = "border-red-500/30";
+    iconGlow = "shadow-[0_0_20px_rgba(239,68,68,0.15)]";
+    badgeBg = "bg-red-500/10";
+  } else if (nicheLower.includes("program") || nicheLower.includes("código") || nicheLower.includes("tech") || nicheLower.includes("web") || nicheLower.includes("software")) {
+    bgGradient = "from-violet-950 via-zinc-950 to-black";
+    accentColor = "text-violet-400";
+    borderColor = "border-violet-500/30";
+    iconGlow = "shadow-[0_0_20px_rgba(139,92,246,0.15)]";
+    badgeBg = "bg-violet-500/10";
+  } else if (nicheLower.includes("mental") || nicheLower.includes("mindset") || nicheLower.includes("produti") || nicheLower.includes("foco") || nicheLower.includes("tempo")) {
+    bgGradient = "from-sky-950 via-zinc-950 to-neutral-950";
+    accentColor = "text-sky-400";
+    borderColor = "border-sky-500/30";
+    iconGlow = "shadow-[0_0_20px_rgba(14,165,233,0.15)]";
+    badgeBg = "bg-sky-500/10";
+  }
+
+  if (isMini) {
+    return (
+      <div className={`w-full h-full bg-gradient-to-b ${bgGradient} border ${borderColor} flex flex-col justify-between p-1.5 rounded-lg shadow-inner relative overflow-hidden text-[5px]`}>
+        {/* Spine simulation */}
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-black/30 border-r border-white/5" />
+        {/* Border frame */}
+        <div className={`absolute inset-0.5 border border-dashed ${borderColor}/40 rounded`} />
+        
+        <div className="text-center z-10 pt-1">
+          <p className="font-serif font-black text-white leading-[6px] tracking-tight truncate px-1 max-w-[40px]">{title}</p>
+        </div>
+        <div className="text-center z-10 pb-1">
+          <span className="font-mono text-[3px] font-bold text-zinc-500 uppercase">NEXUS</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`w-full h-full bg-gradient-to-b ${bgGradient} border-2 ${borderColor} flex flex-col justify-between p-6 sm:p-8 rounded-xl shadow-2xl relative overflow-hidden select-none`}>
+      {/* 3D Spine Simulation overlay */}
+      <div className="absolute left-0 top-0 bottom-0 w-3.5 bg-gradient-to-r from-black/40 via-black/10 to-transparent border-r border-white/5 z-20" />
+      
+      {/* Inner Elegant Border Frame */}
+      <div className={`absolute inset-2 border border-dashed ${borderColor}/50 rounded-lg pointer-events-none z-10`} />
+      
+      {/* Top Banner */}
+      <div className="text-center z-10 pt-3 flex flex-col items-center gap-1.5">
+        <span className={`px-2 py-0.5 ${badgeBg} border ${borderColor}/50 rounded text-[8px] font-mono tracking-widest ${accentColor} font-black uppercase`}>
+          {niche || "Edição Exclusiva"}
+        </span>
+        <div className="w-8 h-[1px] bg-gradient-to-r from-transparent via-zinc-500/40 to-transparent" />
+      </div>
+
+      {/* Main Typography Cluster */}
+      <div className="text-center z-10 my-auto px-2 space-y-4">
+        <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+          {title}
+        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-5 h-[1px] bg-zinc-600/50" />
+          <span className={`text-[9px] font-mono tracking-wider ${accentColor} font-black uppercase`}>NEXUS PUBLISHING</span>
+          <div className="w-5 h-[1px] bg-zinc-600/50" />
+        </div>
+        <p className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-relaxed max-w-sm mx-auto italic">
+          {subtitle}
+        </p>
+      </div>
+
+      {/* Bottom Authority Seal */}
+      <div className="text-center z-10 pb-3 flex flex-col items-center gap-2">
+        <div className={`w-8 h-8 rounded-full bg-zinc-950 border ${borderColor} flex items-center justify-center ${iconGlow}`}>
+          <Sparkles size={11} className={`${accentColor} animate-pulse`} />
+        </div>
+        <span className="text-[9px] font-mono tracking-[0.2em] text-zinc-400 font-black uppercase">
+          NEXUS OPERAÇÕES PREMIUM
+        </span>
+      </div>
+    </div>
+  );
+};
 
 export default function ProjectTabs({ 
   project, 
   onUpdateMilestones, 
   onRegisterSale,
   onDeleteSale,
-  onUpdateProject
+  onUpdateProject,
+  onBack
 }: ProjectTabsProps) {
-  const [activeTab, setActiveTab] = useState<"ebook" | "pdf" | "research" | "x1" | "execution" | "sales">("ebook");
+  const activeCoverUrl = project.coverLocalUrl || project.coverUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600";
+  const [activeTab, setActiveTab] = useState<string>(
+    project.type === "landing_page" ? "landingPage" : project.type === "site" ? "site" : "ebook"
+  );
   const [copiedText, setCopiedText] = useState<string | null>(null);
   
   // Reader controls
@@ -163,7 +438,7 @@ export default function ProjectTabs({
         throw new Error("Resposta de melhoria inválida do servidor.");
       }
     } catch (err) {
-      console.error("Erro ao melhorar capítulo:", err);
+      console.warn("Erro ao melhorar capítulo:", err);
       setImprovementError("Não foi possível processar a melhoria com a IA no momento. Tente novamente.");
     } finally {
       setIsImprovingChapter(false);
@@ -198,15 +473,37 @@ export default function ProjectTabs({
     setTimeout(() => setSaleFormSuccess(false), 3000);
   };
 
-  // Tabs definitions with clean styling
-  const tabs = [
-    { id: "ebook", label: "Ebook", icon: BookOpen },
-    { id: "pdf", label: "PDF / Exportar", icon: FileText },
-    { id: "research", label: "Pesquisas", icon: Search },
-    { id: "x1", label: "Módulo X1", icon: Users },
-    { id: "execution", label: "Plano de Execução", icon: CheckSquare },
-    { id: "sales", label: "Vendas", icon: DollarSign },
-  ] as const;
+  // Tabs definitions with clean styling based on project type
+  const tabs = (() => {
+    if (project.type === "landing_page") {
+      return [
+        { id: "landingPage", label: "Landing Page", icon: Layout },
+        { id: "research", label: "Pesquisa", icon: Search },
+        { id: "x1", label: "Módulo X1", icon: Users },
+        { id: "messages", label: "Mensagens", icon: MessageSquare },
+        { id: "sales", label: "Vendas", icon: DollarSign },
+        { id: "settings", label: "Configurações", icon: Settings },
+      ] as const;
+    }
+    if (project.type === "site") {
+      return [
+        { id: "site", label: "Site", icon: Globe },
+        { id: "research", label: "Pesquisa", icon: Search },
+        { id: "x1", label: "Módulo X1", icon: Users },
+        { id: "messages", label: "Mensagens", icon: MessageSquare },
+        { id: "sales", label: "Vendas", icon: DollarSign },
+        { id: "settings", label: "Configurações", icon: Settings },
+      ] as const;
+    }
+    return [
+      { id: "ebook", label: "Ebook", icon: BookOpen },
+      { id: "research", label: "Pesquisa", icon: Search },
+      { id: "x1", label: "Módulo X1", icon: Users },
+      { id: "messages", label: "Mensagens", icon: MessageSquare },
+      { id: "sales", label: "Vendas", icon: DollarSign },
+      { id: "settings", label: "Configurações", icon: Settings },
+    ] as const;
+  })();
 
   // Font size mapping for readers
   const fontSizeClasses = {
@@ -225,7 +522,18 @@ export default function ProjectTabs({
   const totalProjectRevenue = project.sales.reduce((sum, s) => sum + s.value, 0);
 
   return (
-    <div className="w-full select-none" id="project-tabs-container">
+    <div className="w-full select-none space-y-4" id="project-tabs-container">
+      {onBack && (
+        <div className="flex justify-start">
+          <button
+            onClick={onBack}
+            className="group flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-850 hover:border-zinc-750 rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-all cursor-pointer shadow-md"
+          >
+            <ChevronLeft size={13} className="transition-transform group-hover:-translate-x-0.5 text-zinc-400 group-hover:text-white" />
+            <span>Voltar para Meus Projetos</span>
+          </button>
+        </div>
+      )}
       {/* Top Project summary bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-6 bg-zinc-900 border border-zinc-800 rounded-t-2xl shadow-xl relative overflow-hidden">
         {/* Soft light glow */}
@@ -253,12 +561,16 @@ export default function ProjectTabs({
         {/* Cover Preview Mini */}
         <div className="flex items-center gap-4 bg-black/40 border border-zinc-800/80 p-3.5 rounded-xl shrink-0">
           <div className="w-11 h-15 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden relative shadow-lg">
-            <img 
-              src={project.coverUrl} 
-              alt="Capa Mini" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            {project.coverLocalUrl ? (
+              <img 
+                src={project.coverLocalUrl} 
+                alt="Capa Mini" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              renderCSSCover(project.ebook.title, project.ebook.subtitle || "", project.niche, true)
+            )}
           </div>
           <div>
             <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Volume Editorial</p>
@@ -467,9 +779,84 @@ export default function ProjectTabs({
                       className="space-y-8"
                     >
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center border-b border-zinc-800/60 pb-8">
-                        <div className="md:col-span-4 aspect-[3/4] rounded-xl overflow-hidden border-2 border-zinc-800 shadow-2xl relative group">
-                          <img src={project.coverUrl} className="w-full h-full object-cover" alt="Capa" referrerPolicy="no-referrer" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity" />
+                        <div className="md:col-span-4 space-y-4">
+                          <div className="aspect-[3/4] rounded-xl overflow-hidden border-2 border-zinc-800 shadow-2xl relative group w-full h-full">
+                            {project.coverLocalUrl ? (
+                              <>
+                                <img src={project.coverLocalUrl} className="w-full h-full object-cover" alt="Capa" referrerPolicy="no-referrer" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity" />
+                              </>
+                            ) : (
+                              renderCSSCover(project.ebook.title, project.ebook.subtitle || "", project.niche)
+                            )}
+                          </div>
+                          
+                          {/* Custom Image Uploader */}
+                          <div className="space-y-3 p-4 bg-zinc-900 border border-zinc-800/80 rounded-xl shadow-md">
+                            <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-2">
+                              <Image size={12} className="text-red-500" />
+                              <p className="text-[10px] font-mono uppercase text-zinc-300 font-bold tracking-wider">Design da Capa</p>
+                            </div>
+
+                            {/* Option 1: Local Upload */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-zinc-400 font-bold">Upload de Capa</span>
+                                {project.coverLocalUrl && (
+                                  <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase bg-emerald-500/5 px-1.5 py-0.5 rounded">Ativa</span>
+                                )}
+                              </div>
+                              <label className="flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700/80 border border-zinc-700 hover:border-zinc-600 text-zinc-200 hover:text-white rounded-lg text-xs font-bold cursor-pointer transition-all text-center">
+                                <Upload size={12} />
+                                <span>{project.coverLocalUrl ? "Alterar Capa" : "Selecionar Imagem"}</span>
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = (event) => {
+                                        if (event.target?.result && onUpdateProject) {
+                                          onUpdateProject({
+                                            ...project,
+                                            coverLocalUrl: event.target.result as string
+                                          });
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+
+                              {project.coverLocalUrl && (
+                                <button
+                                  onClick={() => {
+                                    if (onUpdateProject) {
+                                      onUpdateProject({
+                                        ...project,
+                                        coverLocalUrl: undefined
+                                      });
+                                    }
+                                  }}
+                                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-950/20 hover:bg-red-950/40 border border-red-900/30 text-red-400 hover:text-red-300 rounded-lg text-[9px] font-mono font-bold uppercase transition-colors cursor-pointer"
+                                >
+                                  Remover Personalização
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Option 2: AI Cover (future) */}
+                            <div className="pt-2 border-t border-zinc-800 space-y-1">
+                              <span className="text-[10px] text-zinc-500 font-mono font-bold block">Geração Inteligente</span>
+                              <div className="px-2.5 py-2 bg-zinc-950/80 border border-zinc-850 rounded-lg text-[9px] text-zinc-500 font-medium leading-relaxed">
+                                <span className="text-red-500 font-bold block mb-0.5">INDISPONÍVEL AGORA</span>
+                                Geração automática indisponível nesta versão. Faça o upload manual acima.
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         <div className="md:col-span-8 space-y-3">
                           <span className="text-[10px] font-mono tracking-widest text-red-500 font-bold bg-red-500/5 border border-red-500/10 px-2.5 py-1 rounded-full uppercase">
@@ -487,9 +874,9 @@ export default function ProjectTabs({
 
                       <div className="space-y-4">
                         <h4 className="text-xs font-mono uppercase text-zinc-400 tracking-wider font-bold">Sumário Executivo & Sinopse do Produto:</h4>
-                        <p className="indent-6 text-zinc-400 font-serif leading-relaxed text-justify">
-                          {project.ebook.summary}
-                        </p>
+                        <div className="text-zinc-400 font-serif leading-relaxed text-justify">
+                          {renderContent(project.ebook.summary)}
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -503,9 +890,9 @@ export default function ProjectTabs({
                       <h3 className="font-serif text-2xl font-bold text-white tracking-tight mb-2 border-b border-zinc-800/80 pb-3">
                         Introdução do Volume
                       </h3>
-                      <p className="indent-6 text-zinc-300 font-serif leading-relaxed text-justify whitespace-pre-line">
-                        {project.ebook.introduction}
-                      </p>
+                      <div className="text-zinc-300 font-serif leading-relaxed text-justify">
+                        {renderContent(project.ebook.introduction)}
+                      </div>
                     </motion.div>
                   )}
 
@@ -518,9 +905,9 @@ export default function ProjectTabs({
                       <h3 className="font-serif text-2xl font-bold text-white tracking-tight mb-2 border-b border-zinc-800/80 pb-3">
                         Capítulo {activeChapterIndex - 1}: {project.ebook.chapters[activeChapterIndex - 2].title}
                       </h3>
-                      <p className="indent-6 text-zinc-300 font-serif leading-relaxed text-justify whitespace-pre-line">
-                        {project.ebook.chapters[activeChapterIndex - 2].content}
-                      </p>
+                      <div className="text-zinc-300 font-serif leading-relaxed text-justify">
+                        {renderContent(project.ebook.chapters[activeChapterIndex - 2].content)}
+                      </div>
                     </motion.div>
                   )}
 
@@ -534,9 +921,9 @@ export default function ProjectTabs({
                         <h3 className="font-serif text-2xl font-bold text-white tracking-tight mb-2 border-b border-zinc-800/80 pb-3">
                           Considerações Finais & Conclusão
                         </h3>
-                        <p className="indent-6 text-zinc-300 font-serif leading-relaxed text-justify whitespace-pre-line">
-                          {project.ebook.conclusion}
-                        </p>
+                        <div className="text-zinc-300 font-serif leading-relaxed text-justify">
+                          {renderContent(project.ebook.conclusion)}
+                        </div>
                       </div>
 
                       <div className="p-6 bg-red-600/[0.02] border border-red-500/20 rounded-xl space-y-3 relative overflow-hidden">
@@ -545,9 +932,9 @@ export default function ProjectTabs({
                           <Sparkles size={12} className="text-red-500" />
                           CHAMADA PARA AÇÃO COMERCIAL (CTA)
                         </h4>
-                        <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans font-medium text-justify">
-                          {project.ebook.cta}
-                        </p>
+                        <div className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-sans font-medium text-justify">
+                          {renderContent(project.ebook.cta)}
+                        </div>
                         <p className="text-[10px] text-zinc-500 font-mono italic">
                           Dica de conversão: Esta chamada está presente no fechamento do seu livro digital para incentivar a compra de serviços complementares, consultorias ou mentorias diretas no 1x1.
                         </p>
@@ -589,552 +976,81 @@ export default function ProjectTabs({
             </motion.div>
           )}
 
-          {/* TAB 2: PDF PREVIEW & EXPORT ACTIONS */}
-          {activeTab === "pdf" && (
+          {/* LANDING PAGE MODULE */}
+          {activeTab === "landingPage" && (
             <motion.div
-              key="tab-pdf"
+              key="tab-landingPage"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-4xl mx-auto space-y-8"
+              className="w-full"
             >
-              <div className="p-6 sm:p-8 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl space-y-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/[0.01] rounded-full blur-2xl pointer-events-none" />
-                
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-zinc-800 pb-6">
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-mono uppercase text-zinc-300 font-bold flex items-center gap-2">
-                      <Printer size={15} className="text-red-500" />
-                      HUB DE EXPORTAÇÃO EDITORIAL
-                    </h3>
-                    <p className="text-xs text-zinc-500 font-medium">
-                      Compilação pronta para impressão ou exportação digital imediata dos canais de vendas.
-                    </p>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2.5">
-                    <button
-                      onClick={() => handleCopy(JSON.stringify(project.ebook, null, 2), "CopyJSON")}
-                      className="flex items-center gap-2 px-4.5 py-2.5 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
-                    >
-                      {copiedText === "CopyJSON" ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-                      <span>{copiedText === "CopyJSON" ? "Copiado!" : "Copiar Metadados JSON"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => window.print()}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold uppercase cursor-pointer transition-all shadow-lg shadow-red-600/10"
-                    >
-                      <Download size={13} />
-                      <span>Baixar Livro (PDF)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl space-y-1">
-                    <p className="text-[10px] font-mono uppercase text-zinc-500 font-bold">FORMATO DE SAÍDA</p>
-                    <p className="text-xs font-bold text-zinc-200">PDF Editorial A4 Padrão</p>
-                  </div>
-                  <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl space-y-1">
-                    <p className="text-[10px] font-mono uppercase text-zinc-500 font-bold">DIAGRAMAÇÃO</p>
-                    <p className="text-xs font-bold text-zinc-200">Margens Simétricas Otimizadas</p>
-                  </div>
-                  <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-xl space-y-1">
-                    <p className="text-[10px] font-mono uppercase text-zinc-500 font-bold">SEGURANÇA DO CONTEÚDO</p>
-                    <p className="text-xs font-bold text-zinc-200">Proteção de Cópia Integrada</p>
-                  </div>
-                </div>
-
-                {/* Printable Frame Preview */}
-                <div className="bg-white text-zinc-900 p-8 sm:p-14 rounded-xl shadow-2xl font-serif max-h-[500px] overflow-y-auto border border-zinc-300" id="printable-area-preview">
-                  <div className="max-w-2xl mx-auto space-y-12">
-                    {/* Cover Section */}
-                    <div className="text-center py-20 border-b-2 border-zinc-200">
-                      <p className="text-[10px] font-mono tracking-widest text-red-600 font-bold uppercase mb-4">NEXUS PREMIUM PRINTING HOUSES</p>
-                      <h1 className="text-4xl font-serif font-black tracking-tight text-zinc-950 mb-3">{project.ebook.title}</h1>
-                      <h3 className="text-base italic text-zinc-600 max-w-lg mx-auto leading-relaxed">{project.ebook.subtitle}</h3>
-                      <div className="w-16 h-0.5 bg-red-600 mx-auto my-8" />
-                      <p className="text-xs font-mono text-zinc-400 font-semibold uppercase tracking-wider">REGISTRO DA OBRA EDITADA SOB SISTEMA INTEGRADO NEXUS</p>
-                    </div>
-
-                    {/* Introdução section */}
-                    <div className="space-y-4">
-                      <h2 className="text-2xl font-serif font-bold text-zinc-950">Introdução</h2>
-                      <p className="text-sm text-zinc-800 leading-relaxed text-justify indent-6 whitespace-pre-line">
-                        {project.ebook.introduction}
-                      </p>
-                    </div>
-
-                    {/* Chapters section */}
-                    {project.ebook.chapters.map((chapter, index) => (
-                      <div key={index} className="space-y-4 pt-8 border-t border-zinc-200">
-                        <h2 className="text-2xl font-serif font-bold text-zinc-950">Capítulo {index + 1}: {chapter.title}</h2>
-                        <p className="text-sm text-zinc-800 leading-relaxed text-justify indent-6 whitespace-pre-line">
-                          {chapter.content}
-                        </p>
-                      </div>
-                    ))}
-
-                    {/* Conclusão section */}
-                    <div className="space-y-4 pt-8 border-t border-zinc-200">
-                      <h2 className="text-2xl font-serif font-bold text-zinc-950">Conclusão</h2>
-                      <p className="text-sm text-zinc-800 leading-relaxed text-justify indent-6 whitespace-pre-line">
-                        {project.ebook.conclusion}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <LandingPageModule project={project} onUpdateProject={onUpdateProject} />
             </motion.div>
           )}
 
-          {/* TAB 3: PESQUISA INTELIGENTE CARDS */}
+          {/* SITE MODULE */}
+          {activeTab === "site" && (
+            <motion.div
+              key="tab-site"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full"
+            >
+              <SiteModule project={project} onUpdateProject={onUpdateProject} />
+            </motion.div>
+          )}
+
+          {/* RESEARCH MODULE */}
           {activeTab === "research" && (
             <motion.div
               key="tab-research"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-8"
+              className="w-full"
             >
-              {/* Profile/Avatar header info summary */}
-              <div className="bg-zinc-950 border border-zinc-800 p-6 sm:p-8 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-8 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/[0.01] rounded-full blur-2xl pointer-events-none" />
-                
-                <div className="space-y-3 md:border-r md:border-zinc-800/80 md:pr-6">
-                  <p className="text-[10px] font-mono uppercase text-red-500 font-bold tracking-widest flex items-center gap-1.5">
-                    <Target size={12} />
-                    AVATAR DE ALTA CONVERSÃO
-                  </p>
-                  <h3 className="text-2xl font-serif font-black text-white">{project.research.avatar.name}</h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed font-medium">{project.research.avatar.idealAudience}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 md:border-r md:border-zinc-800/80 md:px-6">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Faixa Etária</p>
-                    <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.age}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Profissão Principal</p>
-                    <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.profession}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Renda Média</p>
-                    <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.income}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Gênero</p>
-                    <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.gender}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold mb-2">Interesses Principais mapeados</p>
-                    <div className="flex flex-wrap gap-2">
-                      {project.research.avatar.interests.map((interest, idx) => (
-                        <span key={idx} className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] text-zinc-300 font-bold font-mono">
-                          {interest}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bento Grid layout of other intelligence items */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                
-                {/* Dores */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-red-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-red-500 font-bold mb-4 flex items-center gap-2">
-                    <ShieldAlert size={14} className="text-red-500" />
-                    PONTOS DE DOR (DORES)
-                  </h4>
-                  <ul className="space-y-3.5">
-                    {project.research.avatar.pains.map((pain, idx) => (
-                      <li key={idx} className="text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0 animate-pulse" />
-                        <span className="font-medium text-zinc-300">{pain}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Sonhos */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-emerald-500 font-bold mb-4 flex items-center gap-2">
-                    <Flame size={14} className="text-emerald-500 animate-pulse" />
-                    DESEJOS PRINCIPAIS (SONHOS)
-                  </h4>
-                  <ul className="space-y-3.5">
-                    {project.research.avatar.dreams.map((dream, idx) => (
-                      <li key={idx} className="text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                        <span className="font-medium text-zinc-300">{dream}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Objeções */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-yellow-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-yellow-500 font-bold mb-4 flex items-center gap-2">
-                    <ShieldCheck size={14} className="text-yellow-500" />
-                    OBJEÇÕES & RESPOSTAS LÓGICAS
-                  </h4>
-                  <ul className="space-y-3.5">
-                    {project.research.objections.map((obj, idx) => (
-                      <li key={idx} className="text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 shrink-0" />
-                        <span className="font-medium text-zinc-300">{obj}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Copywriting Elements */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-purple-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-purple-400 font-bold mb-4 flex items-center gap-2">
-                    <Volume2 size={14} className="text-purple-400" />
-                    BRAND VOICE & PALAVRAS-CHAVE
-                  </h4>
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-[9px] font-mono text-zinc-500 uppercase font-bold mb-1.5">Tom de Voz da Marca:</p>
-                      <p className="text-xs text-zinc-200 font-bold">{project.research.tomDeVoz}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-mono text-zinc-500 uppercase font-bold mb-2">Palavras que Convertem:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {project.research.palavrasConvertem.map((word, idx) => (
-                          <span key={idx} className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-[10px] text-red-500 font-bold font-mono">
-                            {word}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Promessas */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-red-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-red-500 font-bold mb-4 flex items-center gap-2">
-                    <Award size={14} className="text-red-500" />
-                    GRANDES PROMESSAS (HEADLINES)
-                  </h4>
-                  <ul className="space-y-3.5">
-                    {project.research.promessas.map((prom, idx) => (
-                      <li key={idx} className="text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-                        <span className="font-medium text-zinc-300 italic">"{prom}"</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Benefícios & Argumentos */}
-                <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-lg relative overflow-hidden group hover:border-zinc-700 transition-all duration-300">
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-600/20" />
-                  <h4 className="text-xs font-mono uppercase text-emerald-500 font-bold mb-4 flex items-center gap-2">
-                    <ShieldCheck size={14} className="text-emerald-500 animate-pulse" />
-                    ARGUMENTOS INCONTESTÁVEIS
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-[9px] font-mono text-zinc-500 uppercase font-bold mb-1.5">Diferenciais da Proposta:</p>
-                      <ul className="space-y-1.5">
-                        {project.research.beneficios.map((ben, idx) => (
-                          <li key={idx} className="text-[11px] text-zinc-300 leading-normal flex items-center gap-2">
-                            <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                            <span>{ben}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-mono text-zinc-500 uppercase font-bold mb-1.5">Raciocínio Lógico Proposto:</p>
-                      <p className="text-[11px] text-zinc-400 italic leading-relaxed">
-                        "{project.research.argumentos[0]}"
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+              <ResearchModule project={project} />
             </motion.div>
           )}
 
-          {/* TAB 4: MÓDULO X1 COPIABLE OUTREACH MESSAGE */}
+          {/* X1 MODULE */}
           {activeTab === "x1" && (
             <motion.div
               key="tab-x1"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+              className="w-full"
             >
-              {/* Category side selector */}
-              <div className="lg:col-span-4 space-y-2.5">
-                <p className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold mb-3 flex items-center gap-1.5">
-                  <MessageSquare size={12} className="text-red-500 animate-pulse" />
-                  Canais de Divulgação Mapeados
-                </p>
-                
-                <div className="space-y-2">
-                  {(Object.keys(project.x1) as Array<keyof Project["x1"]>).map((key) => {
-                    const item = project.x1[key];
-                    const isOpen = activeX1Category === key;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setActiveX1Category(key)}
-                        className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${
-                          isOpen 
-                            ? "border-red-500 bg-red-500/[0.03] shadow-md shadow-red-500/5 font-black" 
-                            : "border-zinc-800 bg-black/30 hover:border-zinc-700"
-                        }`}
-                      >
-                        <div>
-                          <p className="text-xs font-bold text-zinc-100 uppercase tracking-wider">{item.category}</p>
-                          <p className="text-[10px] text-zinc-500 mt-1 font-mono">{item.communities.length} Ecossistemas ativos</p>
-                        </div>
-                        <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Message Display Stage */}
-              <div className="lg:col-span-8 bg-zinc-950 border border-zinc-800 p-6 sm:p-8 rounded-2xl relative shadow-2xl space-y-6">
-                
-                {/* Active category details */}
-                <div className="border-b border-zinc-800 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-mono uppercase text-zinc-300 font-bold tracking-wider">
-                      Canal Alvo: {project.x1[activeX1Category].category}
-                    </h3>
-                    <p className="text-xs text-zinc-500 font-medium leading-relaxed">
-                      Fóruns e redes onde o avatar interage de forma genuína. Utilize com sabedoria para gerar confiança orgânica.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Communities map */}
-                <div>
-                  <p className="text-[9px] font-mono uppercase text-zinc-400 tracking-wider font-bold mb-3 flex items-center gap-1.5">
-                    <ExternalLink size={12} className="text-red-500" />
-                    Comunidades Recomendadas:
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {project.x1[activeX1Category].communities.map((comm, idx) => (
-                      <div key={idx} className="p-4 bg-zinc-900 border border-zinc-800/80 rounded-xl space-y-1.5">
-                        <div className="flex justify-between items-center">
-                          <p className="text-xs font-bold text-zinc-100">{comm.name}</p>
-                          <span className="text-[9px] font-mono text-red-500 font-bold bg-red-500/5 border border-red-500/10 px-1.5 py-0.5 rounded">{comm.size}</span>
-                        </div>
-                        <p className="text-[10px] text-zinc-400 leading-relaxed">{comm.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Outreach Template Box */}
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <p className="text-[9px] font-mono uppercase text-zinc-400 tracking-wider font-bold flex items-center gap-1.5">
-                      <Copy size={12} className="text-red-500" />
-                      Script Copiável de Abordagem:
-                    </p>
-                    
-                    <button
-                      onClick={() => handleCopy(project.x1[activeX1Category].templateMessage, activeX1Category)}
-                      className="flex items-center gap-2 px-3.5 py-1.5 bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors shadow-sm"
-                    >
-                      {copiedText === activeX1Category ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-                      <span>{copiedText === activeX1Category ? "Copiado!" : "Copiar Script"}</span>
-                    </button>
-                  </div>
-
-                  <div className="p-5 bg-black border border-zinc-850 text-xs text-zinc-300 leading-relaxed font-sans rounded-xl whitespace-pre-wrap select-text shadow-inner border border-zinc-800">
-                    {project.x1[activeX1Category].templateMessage}
-                  </div>
-                </div>
-
-              </div>
+              <X1Module project={project} />
             </motion.div>
           )}
 
-          {/* TAB 5: PLANO DE EXECUÇÃO CHECKLIST */}
-          {activeTab === "execution" && (
+          {/* MESSAGES MODULE */}
+          {activeTab === "messages" && (
             <motion.div
-              key="tab-execution"
+              key="tab-messages"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-3xl mx-auto space-y-6"
+              className="w-full"
             >
-              <div className="p-6 sm:p-8 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl">
-                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-850 pb-5">
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-mono uppercase text-zinc-300 font-bold flex items-center gap-2">
-                      <CheckSquare size={15} className="text-red-500" />
-                      ROTEIRO OPERACIONAL DE ATIVAÇÃO
-                    </h3>
-                    <p className="text-xs text-zinc-500 font-medium">
-                      Controle as etapas operacionais concluídas para consolidar seu faturamento e acompanhar seu progresso comercial.
-                    </p>
-                  </div>
-                  
-                  {/* Progress tracker */}
-                  <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl text-center shrink-0">
-                    <p className="text-[9px] font-mono text-zinc-500 font-bold uppercase">Conclusão</p>
-                    <p className="text-lg font-mono font-black text-red-500 mt-0.5">
-                      {Math.round(
-                        (Object.values(project.milestones).filter(Boolean).length / 
-                        Object.keys(project.milestones).length) * 100
-                      )}%
-                    </p>
-                  </div>
-                </div>
+              <MessagesModule project={project} />
+            </motion.div>
+          )}
 
-                <div className="divide-y divide-zinc-850">
-                  {/* Item 1 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("ebookCreated")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.ebookCreated 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.ebookCreated && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.ebookCreated ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Estruturação editorial do Ebook concluída
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Mapeamento didático de capítulos, introdução, conclusão e CTA comercial de alta conversão estruturados de forma coerente.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 2 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("researchCompleted")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.researchCompleted 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.researchCompleted && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.researchCompleted ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Mapeamento de avatar concluído (Módulo de Pesquisas)
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Análise profunda de dores, sonhos, objeções lógicas e tom de voz ideal para a comunicação com o cliente alvo.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 3 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("messagesReady")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.messagesReady 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.messagesReady && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.messagesReady ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Scripts de abordagem do Módulo X1 prontos
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Copys personalizadas prontas e adaptadas especificamente para cada ecossistema digital recomendado.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 4 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("communitiesAnalyzed")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.communitiesAnalyzed 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.communitiesAnalyzed && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.communitiesAnalyzed ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Análise de tráfego e ecossistemas realizada
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Identificação e listagem dos fóruns de alta conversão onde se encontra o público-alvo qualificado.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 5 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("firstPromoDone")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.firstPromoDone 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.firstPromoDone && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.firstPromoDone ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Primeira abordagem oficial executada com sucesso
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Execução prática de postagem ou abordagem direta com base nos scripts fornecidos no Módulo X1.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Item 6 */}
-                  <div className="py-4.5 flex items-start gap-4.5 cursor-pointer hover:bg-zinc-900/10 px-2 rounded-lg transition-colors" onClick={() => handleMilestoneToggle("firstSaleRegistered")}>
-                    <div className="pt-1 shrink-0">
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        project.milestones.firstSaleRegistered 
-                          ? "bg-red-600 border-red-500 text-white shadow-md shadow-red-600/20" 
-                          : "border-zinc-800 bg-black hover:border-zinc-700"
-                      }`}>
-                        {project.milestones.firstSaleRegistered && <Check size={12} className="stroke-[3]" />}
-                      </div>
-                    </div>
-                    <div>
-                      <p className={`text-xs sm:text-sm font-bold ${project.milestones.firstSaleRegistered ? "text-zinc-500 line-through font-normal" : "text-zinc-200"}`}>
-                        Primeira venda liquidada e faturada
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                        Primeiro faturamento do infoproduto registrado no ledger de vendas, confirmando a tração comercial.
-                      </p>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
+          {/* SETTINGS MODULE */}
+          {activeTab === "settings" && (
+            <motion.div
+              key="tab-settings"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="w-full"
+            >
+              <SettingsModule project={project} onUpdateProject={onUpdateProject} />
             </motion.div>
           )}
 
@@ -1185,15 +1101,15 @@ export default function ProjectTabs({
                   {/* Field 2: Transaction Date styled with Calendar icon */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-mono uppercase text-zinc-400 tracking-wider font-bold">Data da Transação</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-zinc-500">
+                    <div className="relative w-full min-w-0 overflow-hidden">
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-zinc-500 pointer-events-none">
                         <Calendar size={14} />
                       </span>
                       <input
                         type="date"
                         value={saleDate}
                         onChange={(e) => setSaleDate(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 h-12 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500/20 transition-all font-bold font-mono cursor-pointer shadow-inner"
+                        className="w-full min-w-0 pl-11 pr-3 py-3.5 h-12 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-xs sm:text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500/20 transition-all font-bold font-mono cursor-pointer shadow-inner block appearance-none"
                         required
                       />
                     </div>

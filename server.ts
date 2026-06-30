@@ -31,28 +31,163 @@ async function startServer() {
 
   // API Route to generate project utilizing Gemini AI
   app.post("/api/generate-project", async (req, res) => {
-    const { name, niche, objective, pages, language } = req.body;
+    const { name, niche, objective, pages, language, type } = req.body;
 
     if (!name || !niche || !objective) {
       return res.status(400).json({ error: "Parâmetros name, niche e objective são obrigatórios." });
     }
 
+    const projType = type || "ebook";
     const ai = getGeminiClient();
 
     if (!ai) {
       // Return a simulated high-quality response if Gemini Key is missing, so the app remains 100% functional
-      console.log("Using local fallback template generator because GEMINI_API_KEY is not defined.");
+      console.log(`Using local fallback template generator because GEMINI_API_KEY is not defined. Type="${projType}"`);
       return res.status(200).json({
         isMock: true,
         message: "Chave API não configurada. Usando mecanismo local premium de contingência.",
-        data: getFallbackProjectData(name, niche, objective, pages, language)
+        data: getFallbackProjectData(name, niche, objective, pages, language, projType)
       });
     }
 
     try {
-      console.log(`Generating project with Gemini: Name="${name}", Niche="${niche}"`);
+      console.log(`Generating project with Gemini: Name="${name}", Niche="${niche}", Type="${projType}"`);
 
-      const prompt = `Você é o Nexus Core, um modelo de inteligência artificial de elite especializado em Marketing de Resposta Direta, Engenharia Pedagógica, Estruturação de Infoprodutos e fechamento de vendas de altíssima conversão no funil de vendas 1x1 (X1).
+      let prompt = "";
+      let responseSchema: any = {};
+
+      if (projType === "landing_page") {
+        prompt = `Você é o Nexus Core, um modelo de inteligência artificial de elite especializado em Marketing de Resposta Direta e Design de Alta Conversão.
+Seu objetivo é gerar o conteúdo completo de uma Landing Page (página de vendas de produto digital) de altíssimo padrão com copy magnética e persuasiva baseada nas premissas:
+- Nome do Produto: "${name}"
+- Nicho de Atuação: "${niche}"
+- Objetivo Comercial e Proposta de Valor: "${objective}"
+- Idioma do Material: "${language || "Português"}"
+
+Instruções Cruciais:
+- headline: Título magnético e irresistível focado na dor principal do público-alvo ou na grande transformação do produto.
+- subheadline: Subtítulo que detalha a promessa principal e aguça o desejo.
+- benefits: 3 benefícios claros e indiscutíveis do seu método.
+- problems: 3 problemas reais e dores profundas enfrentados pelo avatar no dia a dia.
+- solutions: 3 soluções exatas que seu produto entrega para curar esses problemas de vez.
+- testimonials: 2 depoimentos fictícios ultra realistas (com nome, cargo/idade, depoimento focado em resultados).
+- guarantee: Texto com uma garantia incondicional blindada de 7 dias com risco zero para o comprador.
+- faqs: 2 perguntas frequentes respondidas com maestria de copywriter profissional.
+- cta: Chamada de ação poderosa para o botão de compra.
+
+Retorne um JSON contendo a propriedade "landingPage" exatamente de acordo com o schema estruturado.`;
+
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            landingPage: {
+              type: Type.OBJECT,
+              properties: {
+                productName: { type: Type.STRING },
+                niche: { type: Type.STRING },
+                objective: { type: Type.STRING },
+                headline: { type: Type.STRING },
+                subheadline: { type: Type.STRING },
+                benefits: { type: Type.ARRAY, items: { type: Type.STRING } },
+                problems: { type: Type.ARRAY, items: { type: Type.STRING } },
+                solutions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                testimonials: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                      text: { type: Type.STRING }
+                    },
+                    required: ["name", "role", "text"]
+                  }
+                },
+                guarantee: { type: Type.STRING },
+                faqs: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      question: { type: Type.STRING },
+                      answer: { type: Type.STRING }
+                    },
+                    required: ["question", "answer"]
+                  }
+                },
+                cta: { type: Type.STRING }
+              },
+              required: ["productName", "niche", "objective", "headline", "subheadline", "benefits", "problems", "solutions", "testimonials", "guarantee", "faqs", "cta"]
+            }
+          },
+          required: ["landingPage"]
+        };
+
+      } else if (projType === "site") {
+        prompt = `Você é o Nexus Core, um modelo de inteligência artificial de elite especializado em Branding, Comunicação Institucional e Design de Sites Corporativos.
+Seu objetivo é gerar o conteúdo completo de um Site Institucional de apoio à marca baseado nas premissas:
+- Nome da Marca/Empresa: "${name}"
+- Nicho de Atuação: "${niche}"
+- Atuação / Propósito: "${objective}"
+- Idioma do Material: "${language || "Português"}"
+
+Instruções Cruciais:
+- heroTitle: Título institucional que define o posicionamento único de mercado da marca.
+- heroSubtitle: Subtítulo que apoia o posicionamento e detalha a entrega geral da empresa.
+- aboutText: Texto "Sobre Nós" longo e emocionante focado em missão, visão, ética e compromisso real com a solução.
+- contactEmail: E-mail profissional fictício de atendimento de alta confiabilidade.
+- contactPhone: Telefone profissional fictício para contato corporativo.
+- faqs: 2 dúvidas frequentes comuns sobre atendimento institucional respondidas com profissionalismo.
+- features: 3 diferenciais competitivos chave da marca descritos em detalhes (com título e descrição).
+
+Retorne um JSON contendo a propriedade "site" estruturada exatamente de acordo com o schema estruturado.`;
+
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            site: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                niche: { type: Type.STRING },
+                objective: { type: Type.STRING },
+                heroTitle: { type: Type.STRING },
+                heroSubtitle: { type: Type.STRING },
+                aboutText: { type: Type.STRING },
+                contactEmail: { type: Type.STRING },
+                contactPhone: { type: Type.STRING },
+                faqs: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      question: { type: Type.STRING },
+                      answer: { type: Type.STRING }
+                    },
+                    required: ["question", "answer"]
+                  }
+                },
+                features: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      description: { type: Type.STRING }
+                    },
+                    required: ["title", "description"]
+                  }
+                }
+              },
+              required: ["name", "niche", "objective", "heroTitle", "heroSubtitle", "aboutText", "contactEmail", "contactPhone", "faqs", "features"]
+            }
+          },
+          required: ["site"]
+        };
+
+      } else {
+        // DEFAULT: Ebook project
+        prompt = `Você é o Nexus Core, um modelo de inteligência artificial de elite especializado em Marketing de Resposta Direta, Engenharia Pedagógica, Estruturação de Infoprodutos e fechamento de vendas de altíssima conversão no funil de vendas 1x1 (X1).
 Seu objetivo é criar um infoproduto digital de altíssimo padrão (um Ebook completo e profissional pronto para venda), acompanhado de uma pesquisa ultra aprofundada de avatar de mercado, mapeamento de objeções reais no X1 e scripts exatos de atração e conversão para 1x1 no WhatsApp, Facebook, Telegram, Discord, Reddit e Fóruns.
 
 Premissas informadas pelo usuário:
@@ -87,171 +222,174 @@ Instruções Cruciais de Conteúdo (NÃO GERE CONTEÚDO BÁSICO):
 
 Gere a resposta estritamente no formato JSON estruturado respeitando o schema fornecido.`;
 
+        responseSchema = {
+          type: Type.OBJECT,
+          properties: {
+            ebook: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                subtitle: { type: Type.STRING },
+                summary: { type: Type.STRING },
+                introduction: { type: Type.STRING },
+                conclusion: { type: Type.STRING },
+                cta: { type: Type.STRING },
+                chapters: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      content: { type: Type.STRING }
+                    },
+                    required: ["title", "content"]
+                  }
+                }
+              },
+              required: ["title", "subtitle", "summary", "introduction", "conclusion", "cta", "chapters"]
+            },
+            research: {
+              type: Type.OBJECT,
+              properties: {
+                avatar: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    idealAudience: { type: Type.STRING },
+                    age: { type: Type.STRING },
+                    gender: { type: Type.STRING },
+                    profession: { type: Type.STRING },
+                    income: { type: Type.STRING },
+                    city: { type: Type.STRING },
+                    country: { type: Type.STRING },
+                    interests: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    pains: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    dreams: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ["name", "idealAudience", "age", "gender", "profession", "income", "city", "country", "interests", "pains", "dreams"]
+                },
+                objections: { type: Type.ARRAY, items: { type: Type.STRING } },
+                tomDeVoz: { type: Type.STRING },
+                palavrasConvertem: { type: Type.ARRAY, items: { type: Type.STRING } },
+                promessas: { type: Type.ARRAY, items: { type: Type.STRING } },
+                beneficios: { type: Type.ARRAY, items: { type: Type.STRING } },
+                argumentos: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ["avatar", "objections", "tomDeVoz", "palavrasConvertem", "promessas", "beneficios", "argumentos"]
+            },
+            x1: {
+              type: Type.OBJECT,
+              properties: {
+                facebook: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                },
+                telegram: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                },
+                whatsapp: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                },
+                discord: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                },
+                reddit: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                },
+                forums: {
+                  type: Type.OBJECT,
+                  properties: {
+                    category: { type: Type.STRING },
+                    communities: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
+                        required: ["name", "description", "size"]
+                      }
+                    },
+                    templateMessage: { type: Type.STRING }
+                  },
+                  required: ["category", "communities", "templateMessage"]
+                }
+              },
+              required: ["facebook", "telegram", "whatsapp", "discord", "reddit", "forums"]
+            }
+          },
+          required: ["ebook", "research", "x1"]
+        };
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              ebook: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  subtitle: { type: Type.STRING },
-                  summary: { type: Type.STRING },
-                  introduction: { type: Type.STRING },
-                  conclusion: { type: Type.STRING },
-                  cta: { type: Type.STRING },
-                  chapters: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        title: { type: Type.STRING },
-                        content: { type: Type.STRING }
-                      },
-                      required: ["title", "content"]
-                    }
-                  }
-                },
-                required: ["title", "subtitle", "summary", "introduction", "conclusion", "cta", "chapters"]
-              },
-              research: {
-                type: Type.OBJECT,
-                properties: {
-                  avatar: {
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      idealAudience: { type: Type.STRING },
-                      age: { type: Type.STRING },
-                      gender: { type: Type.STRING },
-                      profession: { type: Type.STRING },
-                      income: { type: Type.STRING },
-                      city: { type: Type.STRING },
-                      country: { type: Type.STRING },
-                      interests: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      pains: { type: Type.ARRAY, items: { type: Type.STRING } },
-                      dreams: { type: Type.ARRAY, items: { type: Type.STRING } }
-                    },
-                    required: ["name", "idealAudience", "age", "gender", "profession", "income", "city", "country", "interests", "pains", "dreams"]
-                  },
-                  objections: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  tomDeVoz: { type: Type.STRING },
-                  palavrasConvertem: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  promessas: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  beneficios: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  argumentos: { type: Type.ARRAY, items: { type: Type.STRING } }
-                },
-                required: ["avatar", "objections", "tomDeVoz", "palavrasConvertem", "promessas", "beneficios", "argumentos"]
-              },
-              x1: {
-                type: Type.OBJECT,
-                properties: {
-                  facebook: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  },
-                  telegram: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  },
-                  whatsapp: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  },
-                  discord: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  },
-                  reddit: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  },
-                  forums: {
-                    type: Type.OBJECT,
-                    properties: {
-                      category: { type: Type.STRING },
-                      communities: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: { name: { type: Type.STRING }, description: { type: Type.STRING }, size: { type: Type.STRING } },
-                          required: ["name", "description", "size"]
-                        }
-                      },
-                      templateMessage: { type: Type.STRING }
-                    },
-                    required: ["category", "communities", "templateMessage"]
-                  }
-                },
-                required: ["facebook", "telegram", "whatsapp", "discord", "reddit", "forums"]
-              }
-            },
-            required: ["ebook", "research", "x1"]
-          }
+          responseSchema: responseSchema
         }
       });
 
@@ -261,14 +399,29 @@ Gere a resposta estritamente no formato JSON estruturado respeitando o schema fo
       }
 
       const parsedData = JSON.parse(resultText);
-      return res.status(200).json({ success: true, data: parsedData });
+
+      // Construct final object
+      const finalProject = {
+        id: Math.random().toString(36).substring(2, 11),
+        type: projType,
+        name: name,
+        niche: niche,
+        objective: objective,
+        pages: pages || 45,
+        language: language || "Português",
+        coverUrl: "",
+        createdAt: new Date().toISOString(),
+        ...parsedData
+      };
+
+      return res.status(200).json({ success: true, data: finalProject });
 
     } catch (err: any) {
-      console.error("Error generating project via Gemini:", err);
+      console.warn("Error generating project via Gemini:", err);
       return res.status(200).json({
         isMock: true,
         message: "Ocorreu um erro no processamento da IA. Usando nosso gerador dinâmico premium de contingência.",
-        data: getFallbackProjectData(name, niche, objective, pages, language)
+        data: getFallbackProjectData(name, niche, objective, pages, language, projType)
       });
     }
   });
@@ -336,7 +489,7 @@ Instruções Estruturais de Saída:
       return res.status(200).json({ success: true, improvedContent: improvedText.trim() });
 
     } catch (err: any) {
-      console.error("Error improving chapter via Gemini:", err);
+      console.warn("Error improving chapter via Gemini:", err);
       return res.status(200).json({
         success: true,
         improvedContent: `[MELHORADO COM IA (REDUÇÃO DE ERRO Local)]\n\n${currentContent}\n\n*Nota Tática de Melhoria (Foco em X1):* Adicionado viés de autoridade focado nas diretrizes: "${instructions}". Garanta que os gatilhos de transformação única em ${niche || 'sua área'} estejam evidentes ao abordar seu lead.`
@@ -365,36 +518,162 @@ Instruções Estruturais de Saída:
 }
 
 // Fallback high-quality template generator function in case of failure or missing API key
-function getFallbackProjectData(name: string, niche: string, objective: string, pages: number, language: string) {
-  const cleanName = name.trim() || "Nova Operação de Ebook";
+function getFallbackProjectData(name: string, niche: string, objective: string, pages: number, language: string, type: "ebook" | "landing_page" | "site" = "ebook") {
+  const cleanName = name.trim() || "Nova Operação";
   const cleanNiche = niche.trim() || "Geral";
   const cleanObjective = objective.trim() || "Ajudar o cliente ideal a atingir alta performance no mercado.";
   const pCount = pages || 45;
 
+  const baseProject: any = {
+    id: Math.random().toString(36).substring(2, 11),
+    type,
+    name: cleanName,
+    niche: cleanNiche,
+    objective: cleanObjective,
+    pages: pCount,
+    language: language || "Português",
+    coverUrl: "",
+    createdAt: new Date().toISOString()
+  };
+
+  if (type === "landing_page") {
+    return {
+      ...baseProject,
+      landingPage: {
+        productName: cleanName,
+        niche: cleanNiche,
+        objective: cleanObjective,
+        headline: `Descubra o Método Prático para Dominar ${cleanNiche} e Alcançar seu Objetivo de ${cleanObjective} de Forma Rápida`,
+        subheadline: `O plano tático passo a passo de resposta direta desenhado exclusivamente para transformar sua operação e acelerar seus resultados práticos sem enrolação ou teorias complexas.`,
+        benefits: [
+          "Metodologia 100% prática focada em resultados reais e imediatos",
+          "Acesso imediato aos roteiros exatos de abordagem e fechamento",
+          "Eliminação total da sobrecarga de teorias ineficientes e caras"
+        ],
+        problems: [
+          `Frustração extrema por não conseguir evoluir de forma consistente em ${cleanNiche}`,
+          "Sensação de estar perdido em meio a dezenas de informações confusas e gurus",
+          "Dificuldade de reter e fechar clientes de alto valor de forma constante"
+        ],
+        solutions: [
+          `O método estruturado '${cleanName}' que resolve de forma cirúrgica as dores do público`,
+          "Checklists operacionais compactos de 15 minutos por dia que cabem perfeitamente na sua rotina",
+          "Garantia incondicional de aprendizado com suporte direto via chat 1x1"
+        ],
+        testimonials: [
+          { name: "Mariana Souza", role: "Mentora de Negócios", text: "Aplicar este método foi um divisor de águas na minha operação. Consegui estruturar minha abordagem e fechar meus primeiros clientes de forma super natural!" },
+          { name: "Thiago Mendes", role: "Produtor Digital", text: "Excelente material. Vai direto ao ponto, sem enrolações acadêmicas desnecessárias. O checklist diário de 15 minutos salvou minha rotina." }
+        ],
+        guarantee: "Garantia incondicional de 7 dias. Se você não notar uma evolução clara ou achar que o método não é para você, devolvemos 100% do seu investimento de forma simples e direta, sem perguntas.",
+        faqs: [
+          { question: "Para quem é indicado este método?", answer: `Para qualquer pessoa que queira se destacar em ${cleanNiche}, seja um iniciante absoluto ou alguém que já atua no mercado e quer refinar seu funil.` },
+          { question: "Como funciona a garantia?", answer: "Você tem 7 dias completos para testar o material. Se não gostar, basta solicitar o reembolso que processamos imediatamente." }
+        ],
+        cta: "Quero Garantir Meu Acesso Agora Com Desconto"
+      }
+    };
+  }
+
+  if (type === "site") {
+    return {
+      ...baseProject,
+      site: {
+        name: cleanName,
+        niche: cleanNiche,
+        objective: cleanObjective,
+        heroTitle: `A Solução Definitiva para Dominar ${cleanNiche}`,
+        heroSubtitle: `Capacitando você a atingir seu objetivo de ${cleanObjective.toLowerCase()} com autoridade, clareza e resultados reais.`,
+        aboutText: `Nossa missão é desmistificar e simplificar o aprendizado prático em ${cleanNiche}. Acreditamos que o desenvolvimento de habilidades de alta performance deve ser acessível, prático e orientado à ação imediata, eliminando o excesso de teoria e focando exclusivamente no que gera valor real e faturamento.`,
+        contactEmail: "suporte@nexusoperacoes.com",
+        contactPhone: "+55 (11) 99999-9999",
+        faqs: [
+          { question: "Como funciona o suporte?", answer: "Oferecemos canal de atendimento e suporte exclusivo por e-mail ou WhatsApp para responder qualquer dúvida de forma rápida." },
+          { question: "Quais serviços vocês oferecem?", answer: `Oferecemos treinamentos especializados, ebooks operacionais de alta qualidade, checklists táticos e consultorias personalizadas focadas em ${cleanNiche}.` }
+        ],
+        features: [
+          { title: "Metodologia Prática", description: "Esqueça conceitos puramente acadêmicos. Focamos no que de fato gera resultados no dia a dia." },
+          { title: "Suporte Dedicado", description: "Equipe de apoio ativa para tirar suas dúvidas e garantir que você não fique travado." },
+          { title: "Material de Apoio", description: "Planilhas, roteiros de conversa e copys testadas prontas para aplicação imediata." }
+        ]
+      }
+    };
+  }
+
+  // DEFAULT: Ebook project
   return {
+    ...baseProject,
     ebook: {
-      title: `Método ${cleanName} Avançado`,
-      subtitle: `Como atingir resultados extraordinários em ${cleanNiche} focando na transformação prática do seu cliente`,
-      summary: `Este guia prático foi minuciosamente desenvolvido para servir como o seu playbook de escala em ${cleanNiche}. Ele une os conceitos teóricos aos planos de ação diários para garantir resultados consistentes, de forma rápida e descomplicada.`,
-      introduction: `Boas-vindas à sua jornada rumo à alta conversão. Este livro foi projetado para ser o seu mapa operacional. Se você busca estratégias práticas, as próximas páginas trazem o método exato para revolucionar seus resultados.`,
-      conclusion: `Chegamos ao final do guia, mas a sua jornada de escala está apenas começando. O conhecimento só gera valor com a prática constante. Vá ao mercado, aplique o método e conquiste sua liberdade comercial.`,
-      cta: `Quer destravar materiais de apoio inéditos e planilhas de execução prática para acelerar em até 3x seu progresso? Toque no link de suporte e me mande uma mensagem direta no WhatsApp agora mesmo!`,
+      title: cleanName,
+      subtitle: `Manual prático para dominar ${cleanNiche} e atingir o objetivo de ${cleanObjective.toLowerCase().replace(/ajudar a|ensinar a|ajudar|ensinar/g, "").trim()} de forma simples e direta.`,
+      summary: `### SUMÁRIO EXECUTIVO
+Este manual operacional foi minuciosamente desenvolvido para servir como o seu playbook de escala rápida em **${cleanNiche}**. Unindo conceitos teóricos comprovados a checklists de aplicação tática diária, este material foi estruturado para ser um divisor de águas na sua jornada, permitindo que você atinja seu objetivo estratégico de **${cleanObjective.toLowerCase().replace(/ajudar a|ensinar a|ajudar|ensinar/g, "").trim()}** sem processos mirabolantes ou teorias ineficientes.`,
+      introduction: `### INTRODUÇÃO
+Seja muito bem-vindo ao ponto de virada da sua jornada. Este material foi desenhado com um único objetivo claro: ser o seu manual operacional definitivo em **${cleanNiche}**. Se você está cansado de teorias vazias, cursos infinitos de gurus e da total falta de direcionamento prático, as próximas páginas contêm o plano estratégico exato para revolucionar seus resultados.
+
+> **Regra de Ouro do Sucesso:** A diferença entre quem alcança a alta performance e quem continua estagnado não é a inteligência, mas sim a clareza do método e a constância cirúrgica da execução diária.
+
+A partir de agora, você tem em mãos um método testado e validado passo a passo para simplificar a sua evolução em direção ao seu objetivo de **${cleanObjective.toLowerCase().replace(/ajudar a|ensinar a|ajudar|ensinar/g, "").trim()}**. Prepare o seu café, elimine as distrações e concentre-se nas diretrizes práticas que estão prestes a ser reveladas.`,
+      conclusion: `### CONSIDERAÇÕES FINAIS
+Chegamos ao final deste guia estratégico, mas este é apenas o começo da sua nova fase de realizações. O conhecimento sem aplicação prática imediata é apenas potencial desperdiçado. Agora, a responsabilidade de executar cada etapa estruturada está em suas mãos.
+
+Confie no método, mantenha a constância diária de 15 minutos e os resultados serão uma consequência inevitável do seu esforço direcionado.`,
+      cta: `### ACESSO EXCLUSIVO DE LEITOR
+Quer dar o próximo passo rumo à excelência absoluta? Toque no botão de suporte abaixo e envie uma mensagem direta no WhatsApp para garantir o seu acesso a materiais de apoio exclusivos, atualizações em tempo real e o nosso canal de mentoria individual 1x1!`,
       chapters: [
         {
-          title: "Capítulo 1: O Pilar Invisível da Conversão",
-          content: `Para construir qualquer projeto de sucesso em ${cleanNiche}, o passo número zero é entender perfeitamente o seu mercado de atuação. A maioria dos produtores digitais fracassa porque ignora as dores reais do cliente ideal. Aqui, analisaremos de forma simples como estruturar uma oferta que se venda sozinha de forma imediata.`
+          title: "Capítulo 1: O Alicerce Invisível da Alta Conversão",
+          content: `### 1.1 Entendendo o Campo de Batalha
+Para construir qualquer projeto duradouro em **${cleanNiche}**, é vital compreender os fatores invisíveis que determinam o sucesso ou o fracasso. A maioria das pessoas falha porque ignora o mapeamento estruturado das necessidades de mercado.
+
+### 1.2 Os Três Pilares Críticos de Sucesso
+Para garantir que você consiga **${cleanObjective.toLowerCase().replace(/ajudar a|ensinar a|ajudar|ensinar/g, "").trim()}**, é preciso focar nesta tríade tática:
+- **Pilar 1 (Conexão Empática):** Falar a linguagem exata das dores e desejos do seu cliente ideal.
+- **Pilar 2 (Proposta Única de Valor):** Ter uma promessa que soe irrecusável e impossível de ser ignorada.
+- **Pilar 3 (Distribuição Orgânica Focalizada):** Estar presente nos exatos canais e redes de alta conversão.
+
+> **Mentalidade de Elite:** Não tente vender um produto. Venda a resolução imediata do maior problema que tira o sono do seu cliente ideal.`
         },
         {
-          title: "Capítulo 2: Executando com Maestria e Foco",
-          content: `Com os conceitos alinhados, entraremos na fase tática direcionada a ${cleanObjective}. Dissecaremos as ferramentas práticas necessárias para maximizar a sua entrega diária e construir uma imagem profissional de extrema autoridade frente aos seus leads.`
+          title: `Capítulo 2: Executando o Método ${cleanName} com Foco Absoluto`,
+          content: `### 2.1 O Roteiro Estratégico de Implementação
+Agora que dominamos a base conceitual, entraremos no plano de ação cirúrgico focado em obter resultados práticos e consistentes de forma ágil.
+
+### 2.2 Cronograma Metodológico Passo a Passo
+Siga o plano de ação exato de 3 etapas diárias para consolidar o método:
+1. **Mapeamento Diário (10 minutos):** Revise as métricas e os canais ativos de atração de leads.
+2. **Abordagem Personalizada (15 minutos):** Utilize as copys do Módulo X1 para abrir novos pontos de contato no WhatsApp e no Facebook.
+3. **Quebra de Objeções (10 minutos):** Utilize os scripts de fechamento para sanar dúvidas e encaminhar para a liquidação.
+
+Cada etapa foi desenhada para maximizar o seu foco operacional sem causar sobrecarga cognitiva ou estresse desnecessário.`
         },
         {
-          title: "Capítulo 3: Eliminando Objeções e Resistências",
-          content: `Todo cliente criará objeções lógicas na hora de comprar. No Capítulo 3, abordamos como antecipar essas barreiras e respondê-las com empatia no funil 1 a 1, eliminando medos sobre preço, tempo e capacidade de execução.`
+          title: "Capítulo 3: Eliminando Objeções de Mercado no Funil 1x1",
+          content: `### 3.1 A Psicologia por Trás das Barreiras de Vendas
+Todo cliente criará objeções na hora de fechar um negócio. Essas resistências são, na verdade, pedidos implícitos por mais clareza, segurança e garantia de resultados.
+
+### 3.2 Como Superar as 3 Maiores Objeções de Forma Natural
+Veja as soluções diretas para aplicar em chats de WhatsApp ou direct:
+- **Objeção: "Está caro demais"**
+  - *Abordagem de Resolução:* Confronte o preço com o valor de anos de erros poupados e apresente a facilidade de parcelamento.
+- **Objeção: "Não tenho tempo agora"**
+  - *Abordagem de Resolução:* Demonstre que o método é compacto e projetado para ser executado em apenas 15 minutos por dia.
+- **Objeção: "Será que serve para mim?"**
+  - *Abordagem de Resolução:* Ofereça a nossa garantia incondicional de 7 dias com risco zero para a tomada de decisão.
+
+Ao responder com empatia e técnica, você constrói uma ponte de confiança inabalável que naturalmente encaminha o lead para o fechamento.`
         },
         {
-          title: "Capítulo 4: Métricas de Escala e Multiplicação",
-          content: `Nesta fase final, apresentamos métricas realistas para avaliar seus ganhos semanalmente. Abordamos táticas de up-sell, pós-venda premium e a criação de esteiras de produtos para impulsionar e perpetuar o seu negócio no X1.`
+          title: "Capítulo 4: Métricas de Escala, Caixa Geral e Multiplicação",
+          content: `### 4.1 Como Medir o Progresso Real
+O que não pode ser medido não pode ser melhorado. Para expandir o seu negócio digital no longo prazo, é fundamental auditar o seu funil semanalmente.
+
+### 4.2 Indicadores Chave de Alta Conversão
+Monitore estes 3 indicadores essenciais para calibrar o seu faturamento global:
+1. **Taxa de Resposta de Leads:** Quantas pessoas engajam na sua primeira mensagem de abordagem.
+2. **Taxa de Conversão no Caixa:** Quantos leads qualificados de WhatsApp de fato realizam o pagamento.
+3. **LTV (Lifetime Value):** A oferta de produtos ou consultorias adicionais para clientes que já confiam no seu trabalho.
+
+Mantenha estes indicadores ajustados e a consolidação do seu faturamento será consistente e sustentável.`
         }
       ]
     },

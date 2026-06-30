@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { motion } from "motion/react";
-import { Mail, Lock, User, ShieldCheck, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, ShieldCheck, ArrowRight, Database, Info } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "../supabaseClient";
 
 interface AuthProps {
   onSuccess: (name: string, email: string) => void;
@@ -12,20 +13,70 @@ export default function Auth({ onSuccess }: AuthProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!email || !password || (!isLogin && !name)) {
       setError("Por favor preencha todos os campos.");
       return;
     }
     setError("");
-    // Simulate successful login/register
-    onSuccess(isLogin ? (name || "Usuário") : name, email);
+    setSuccessMessage("");
+
+    if (!isSupabaseConfigured) {
+      // Mock persistence if Supabase keys are not set yet
+      onSuccess(isLogin ? (name || email.split("@")[0] || "Usuário") : name, email);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (isLogin) {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (authError) throw authError;
+        
+        if (data.user) {
+          const userMetadata = data.user.user_metadata || {};
+          const displayName = userMetadata.name || email.split("@")[0] || "Usuário";
+          onSuccess(displayName, email);
+        }
+      } else {
+        const { data, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name
+            }
+          }
+        });
+        if (authError) throw authError;
+
+        if (data.user) {
+          // Check if confirmation is required or if we are immediately logged in
+          if (data.session) {
+            onSuccess(name, email);
+          } else {
+            setSuccessMessage("Conta criada! Verifique sua caixa de entrada para confirmar seu e-mail.");
+            setIsLogin(true);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("Erro na autenticação Supabase:", err);
+      setError(err.message || "Ocorreu um erro ao processar sua solicitação.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div id="auth-page" className="min-h-screen flex items-center justify-center bg-nexus-black px-4 py-12 select-none relative overflow-hidden">
+    <div id="auth-page" className="min-h-screen flex flex-col items-center justify-center bg-nexus-black px-4 py-12 select-none relative overflow-hidden">
       {/* Background elegant accents */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.03)_0,transparent_60%)] pointer-events-none" />
 
@@ -37,8 +88,13 @@ export default function Auth({ onSuccess }: AuthProps) {
       >
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-nexus-red/10 border border-nexus-red/30 shadow-xl mb-4">
-            <span className="font-display text-2xl font-black text-nexus-red animate-pulse">N</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0F0F12]/90 border border-nexus-border shadow-[0_0_20px_rgba(255,31,61,0.25)] mb-4 overflow-hidden relative">
+            <img 
+              src="https://i.ibb.co/S44NnLMD/content.png" 
+              alt="NEXUS Logo" 
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover scale-110 mix-blend-screen"
+            />
           </div>
           <h1 className="font-display text-3xl tracking-tighter font-black text-white mb-1">
             NEXUS
@@ -51,30 +107,38 @@ export default function Auth({ onSuccess }: AuthProps) {
         {/* Tab switchers */}
         <div className="flex border-b border-nexus-border mb-6">
           <button
-            onClick={() => { setIsLogin(true); setError(""); }}
+            onClick={() => { setIsLogin(true); setError(""); setSuccessMessage(""); }}
             className={`flex-1 pb-3 text-sm font-semibold tracking-wide transition-all cursor-pointer ${
               isLogin 
                 ? "text-nexus-red border-b-2 border-nexus-red" 
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
+            disabled={loading}
           >
             Acessar Conta
           </button>
           <button
-            onClick={() => { setIsLogin(false); setError(""); }}
+            onClick={() => { setIsLogin(false); setError(""); setSuccessMessage(""); }}
             className={`flex-1 pb-3 text-sm font-semibold tracking-wide transition-all cursor-pointer ${
               !isLogin 
                 ? "text-nexus-red border-b-2 border-nexus-red" 
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
+            disabled={loading}
           >
             Cadastrar-se
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-950/40 border border-red-800/60 rounded-xl text-red-400 text-xs text-center">
+          <div className="mb-4 p-3 bg-red-950/40 border border-red-800/60 rounded-xl text-red-400 text-xs text-center font-medium">
             {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-4 p-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl text-emerald-400 text-xs text-center font-medium">
+            {successMessage}
           </div>
         )}
 
@@ -93,6 +157,7 @@ export default function Auth({ onSuccess }: AuthProps) {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Seu nome"
                   className="w-full pl-10 pr-4 py-3.5 bg-nexus-black border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-medium"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -110,6 +175,8 @@ export default function Auth({ onSuccess }: AuthProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 className="w-full pl-10 pr-4 py-3.5 bg-nexus-black border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-medium"
+                disabled={loading}
+                required
               />
             </div>
           </div>
@@ -133,6 +200,8 @@ export default function Auth({ onSuccess }: AuthProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Sua senha secreta"
                 className="w-full pl-10 pr-4 py-3.5 bg-nexus-black border border-nexus-border focus:border-nexus-red rounded-xl text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all font-medium"
+                disabled={loading}
+                required
               />
             </div>
           </div>
@@ -140,10 +209,20 @@ export default function Auth({ onSuccess }: AuthProps) {
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-nexus-red hover:bg-nexus-red-hover text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-nexus-red/10 hover:shadow-nexus-red/20 cursor-pointer transition-all hover:translate-y-[-1px] active:translate-y-[1px]"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-nexus-red hover:bg-nexus-red-hover text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-nexus-red/10 hover:shadow-nexus-red/20 cursor-pointer transition-all hover:translate-y-[-1px] active:translate-y-[1px] disabled:opacity-50"
             >
-              <span>{isLogin ? "Acessar Workspace" : "Criar Minha Conta"}</span>
-              <ArrowRight size={15} />
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Processando...</span>
+                </>
+              ) : (
+                <>
+                  <span>{isLogin ? "Acessar Workspace" : "Criar Minha Conta"}</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -157,3 +236,4 @@ export default function Auth({ onSuccess }: AuthProps) {
     </div>
   );
 }
+

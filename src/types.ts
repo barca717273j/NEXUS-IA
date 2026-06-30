@@ -56,6 +56,43 @@ export interface EbookContent {
   chapters: Chapter[];
 }
 
+export interface LandingPageContent {
+  productName: string;
+  niche: string;
+  objective: string;
+  headline: string;
+  subheadline: string;
+  benefits: string[];
+  problems: string[];
+  solutions: string[];
+  testimonials: {
+    name: string;
+    role: string;
+    text: string;
+  }[];
+  guarantee: string;
+  faqs: { question: string; answer: string }[];
+  cta: string;
+}
+
+export interface SiteFeature {
+  title: string;
+  description: string;
+}
+
+export interface SiteContent {
+  name: string;
+  niche: string;
+  objective: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  aboutText: string;
+  contactEmail: string;
+  contactPhone: string;
+  faqs: { question: string; answer: string }[];
+  features: SiteFeature[];
+}
+
 export interface ProjectMilestones {
   ebookCreated: boolean;
   researchCompleted: boolean;
@@ -67,15 +104,19 @@ export interface ProjectMilestones {
 
 export interface Project {
   id: string;
+  type?: "ebook" | "landing_page" | "site";
   name: string;
   niche: string;
   objective: string;
   pages: number;
   language: string;
   coverUrl: string;
+  coverLocalUrl?: string; // Option for uploaded local cover
   createdAt: string;
   ebook: EbookContent;
   research: Research;
+  landingPage?: LandingPageContent; // Optional, added for LP
+  site?: SiteContent; // Optional, added for Site
   x1: {
     facebook: OutreachGroup;
     telegram: OutreachGroup;

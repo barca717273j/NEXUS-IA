@@ -2,8 +2,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   LayoutDashboard, 
-  FolderPlus, 
-  Library, 
+  BookOpen,
+  Layout,
+  Globe,
   CircleDollarSign, 
   Settings, 
   LogOut, 
@@ -39,8 +40,9 @@ export default function Sidebar({
   
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "new-project", label: "Novo Projeto", icon: FolderPlus },
-    ...(hasActiveProject ? [{ id: "library", label: "Biblioteca Ativa", icon: Library }] : []),
+    { id: "ebooks", label: "Meus Ebooks", icon: BookOpen },
+    { id: "landing_pages", label: "Landing Pages", icon: Layout },
+    { id: "sites", label: "Sites", icon: Globe },
     { id: "sales-ledger", label: "Registrar Venda", icon: CircleDollarSign },
   ];
 
@@ -74,8 +76,13 @@ export default function Sidebar({
             animate={{ opacity: 1 }}
             className="flex items-center gap-2.5"
           >
-            <div className="flex items-center justify-center w-7.5 h-7.5 rounded-lg bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_15px_rgba(255,31,61,0.4)] border border-nexus-red/20 shrink-0">
-              <Zap size={14} className="text-white fill-white animate-pulse" />
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#0F0F12]/80 border border-nexus-border shrink-0 overflow-hidden shadow-[0_0_15px_rgba(255,31,61,0.25)] relative">
+              <img 
+                src="https://i.ibb.co/S44NnLMD/content.png" 
+                alt="NEXUS Logo" 
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover scale-110 mix-blend-screen"
+              />
             </div>
             <div className="flex flex-col">
               <span className="font-display text-base tracking-tight font-black text-white leading-none">
@@ -89,8 +96,13 @@ export default function Sidebar({
         )}
 
         {collapsed && !isMobileView && (
-          <div className="mx-auto flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-nexus-red to-rose-600 shadow-[0_0_12px_rgba(255,31,61,0.4)] border border-nexus-red/20 transition-all duration-300 hover:scale-105 cursor-pointer">
-            <Zap size={14} className="text-white fill-white animate-pulse" />
+          <div className="mx-auto flex items-center justify-center w-9 h-9 rounded-xl bg-[#0F0F12]/80 border border-nexus-border/80 transition-all duration-300 hover:scale-105 cursor-pointer overflow-hidden shadow-[0_0_15px_rgba(255,31,61,0.25)] hover:border-nexus-red/50">
+            <img 
+              src="https://i.ibb.co/S44NnLMD/content.png" 
+              alt="NEXUS Logo" 
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover scale-110 mix-blend-screen"
+            />
           </div>
         )}
 
