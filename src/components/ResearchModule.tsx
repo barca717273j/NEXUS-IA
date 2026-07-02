@@ -7,44 +7,89 @@ interface ResearchModuleProps {
 }
 
 export default function ResearchModule({ project }: ResearchModuleProps) {
+  const research = project.research || {
+    avatar: {
+      name: "Avatar Geral",
+      idealAudience: "O público ideal de alta conversão para o nicho de " + project.niche + ".",
+      age: "N/A",
+      profession: "N/A",
+      income: "N/A",
+      city: "N/A",
+      interests: ["Praticidade", "Desenvolvimento", "Resultados"],
+      pains: [
+        "Falta de tempo para estruturar um plano claro de evolução",
+        "Sensação de sobrecarga por excesso de informações desorganizadas"
+      ],
+      dreams: [
+        "Conquistar autonomia e clareza no processo",
+        "Atingir alta performance com foco e consistência"
+      ]
+    },
+    tomDeVoz: "Profissional, direto ao ponto e encorajador.",
+    palavrasConvertem: ["Evolução", "Método Prático", "Resultados", "Estrutura", "Consistência"]
+  };
+
+  const avatar = research.avatar || {
+    name: "Avatar Geral",
+    idealAudience: "O público ideal de alta conversão para o nicho de " + project.niche + ".",
+    age: "N/A",
+    profession: "N/A",
+    income: "N/A",
+    city: "N/A",
+    interests: ["Praticidade", "Desenvolvimento", "Resultados"],
+    pains: [
+      "Falta de tempo para estruturar um plano claro de evolução",
+      "Sensação de sobrecarga por excesso de informações desorganizadas"
+    ],
+    dreams: [
+      "Conquistar autonomia e clareza no processo",
+      "Atingir alta performance com foco e consistência"
+    ]
+  };
+
+  const interests = avatar.interests || [];
+  const pains = avatar.pains || [];
+  const dreams = avatar.dreams || [];
+  const palavrasConvertem = research.palavrasConvertem || [];
+
   return (
     <div className="space-y-8">
       {/* Profile/Avatar Header Info Summary */}
       <div className="bg-zinc-950 border border-zinc-800 p-6 sm:p-8 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-8 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/[0.01] rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-2xl pointer-events-none" />
         
         <div className="space-y-3 md:border-r md:border-zinc-800/80 md:pr-6">
           <p className="text-[10px] font-mono uppercase text-red-500 font-bold tracking-widest flex items-center gap-1.5">
             <Target size={12} />
             AVATAR DE ALTA CONVERSÃO
           </p>
-          <h3 className="text-2xl font-serif font-black text-white">{project.research.avatar.name}</h3>
-          <p className="text-xs text-zinc-400 leading-relaxed font-medium">{project.research.avatar.idealAudience}</p>
+          <h3 className="text-2xl font-serif font-black text-white">{avatar.name}</h3>
+          <p className="text-xs text-zinc-400 leading-relaxed font-medium">{avatar.idealAudience}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:border-r md:border-zinc-800/80 md:px-6">
           <div>
             <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Faixa Etária</p>
-            <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.age}</p>
+            <p className="text-xs font-bold text-zinc-200 mt-0.5">{avatar.age}</p>
           </div>
           <div>
             <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Profissão Principal</p>
-            <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.profession}</p>
+            <p className="text-xs font-bold text-zinc-200 mt-0.5">{avatar.profession}</p>
           </div>
           <div>
             <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Renda Média</p>
-            <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.income}</p>
+            <p className="text-xs font-bold text-zinc-200 mt-0.5">{avatar.income}</p>
           </div>
           <div>
             <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold">Localidade</p>
-            <p className="text-xs font-bold text-zinc-200 mt-0.5">{project.research.avatar.city}</p>
+            <p className="text-xs font-bold text-zinc-200 mt-0.5">{avatar.city}</p>
           </div>
         </div>
 
         <div className="space-y-3">
           <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Interesses Dominantes:</p>
           <div className="flex flex-wrap gap-1.5">
-            {project.research.avatar.interests.map((interest, idx) => (
+            {interests.map((interest, idx) => (
               <span key={idx} className="text-[9px] font-mono bg-zinc-900 border border-zinc-850 text-zinc-300 px-2 py-1 rounded">
                 {interest}
               </span>
@@ -65,8 +110,8 @@ export default function ResearchModule({ project }: ResearchModuleProps) {
             Use estes tópicos como gatilhos de empatia na comunicação do 1x1. Demonstre compreender esses sentimentos para derrubar a desconfiança inicial.
           </p>
           <ul className="space-y-3 font-sans text-xs text-zinc-300 font-medium">
-            {project.research.avatar.pains.map((pain, idx) => (
-              <li key={idx} className="flex gap-2.5 items-start bg-red-950/5 border border-red-950/20 p-3 rounded-xl">
+            {pains.map((pain, idx) => (
+              <li key={idx} className="flex gap-2.5 items-start bg-red-950/40 border border-red-700/40 p-3 rounded-xl">
                 <span className="text-red-500 font-bold mt-0.5 shrink-0">•</span>
                 <span>{pain}</span>
               </li>
@@ -84,7 +129,7 @@ export default function ResearchModule({ project }: ResearchModuleProps) {
             Apresente o seu infoproduto como a ponte direta para alcançar estes estados emocionais e práticos de liberdade.
           </p>
           <ul className="space-y-3 font-sans text-xs text-zinc-300 font-medium">
-            {project.research.avatar.dreams.map((dream, idx) => (
+            {dreams.map((dream, idx) => (
               <li key={idx} className="flex gap-2.5 items-start bg-emerald-950/5 border border-emerald-950/20 p-3 rounded-xl">
                 <span className="text-emerald-500 font-bold mt-0.5 shrink-0">•</span>
                 <span>{dream}</span>
@@ -99,13 +144,13 @@ export default function ResearchModule({ project }: ResearchModuleProps) {
         {/* Tom de voz */}
         <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-xl space-y-2">
           <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Tom de Voz Recomendado</p>
-          <p className="text-xs font-bold text-zinc-200">{project.research.tomDeVoz}</p>
+          <p className="text-xs font-bold text-zinc-200">{research.tomDeVoz}</p>
         </div>
         
         {/* Palavras que convertem */}
         <div className="p-6 bg-zinc-950 border border-zinc-800 rounded-xl space-y-2">
           <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Palavras-Chave de Conversão</p>
-          <p className="text-xs font-mono font-bold text-red-500">{project.research.palavrasConvertem.join(" • ")}</p>
+          <p className="text-xs font-mono font-bold text-red-500">{palavrasConvertem.join(" • ")}</p>
         </div>
 
         {/* Tom geral do infoproduto */}

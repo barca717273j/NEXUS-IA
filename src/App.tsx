@@ -5,6 +5,7 @@ import MetricCards from "./components/MetricCards";
 import SalesChart from "./components/SalesChart";
 import ProjectWizard from "./components/ProjectWizard";
 import ProjectTabs from "./components/ProjectTabs";
+import ProjectCategoryList from "./components/ProjectCategoryList";
 import Auth from "./components/Auth";
 import { Project, Sale, UserStats } from "./types";
 import { SEED_PROJECTS, generateProject } from "./data/templates";
@@ -20,13 +21,16 @@ import {
   Coins, 
   Info,
   Layers,
+  X,
   ArrowRight,
   LayoutGrid,
   Menu,
   ShieldCheck,
   Lock,
   Calendar,
-  Database
+  Database,
+  Layout,
+  Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -100,10 +104,88 @@ export default function App() {
     const saved = localStorage.getItem("nexus_credits");
     return saved ? Number(saved) : 94;
   });
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<"semanal" | "mensal" | "anual">("mensal");
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeSuccess, setSubscribeSuccess] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState(() => {
+    return localStorage.getItem("nexus_current_plan") || "Plano Pro - Mensal";
+  });
+  const [renewalDate, setRenewalDate] = useState(() => {
+    const saved = localStorage.getItem("nexus_renewal_date");
+    if (saved) return saved;
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toLocaleDateString("pt-BR");
+  });
+
+  const consumeCredits = (amount: number): boolean => {
+    if (credits < amount) {
+      setShowSubscriptionModal(true);
+      return false;
+    }
+    setCredits(prev => {
+      const newVal = Math.max(0, prev - amount);
+      localStorage.setItem("nexus_credits", String(newVal));
+      return newVal;
+    });
+    return true;
+  };
+
+  const handleSubscribe = () => {
+    setIsSubscribing(true);
+    setTimeout(() => {
+      let creditsToAdd = 400;
+      let planName = "Plano Pro - Mensal";
+      let daysToAdd = 30;
+
+      if (selectedPeriod === "semanal") {
+        creditsToAdd = 70;
+        planName = "Plano Pro - Semanal";
+        daysToAdd = 7;
+      } else if (selectedPeriod === "anual") {
+        creditsToAdd = 6000;
+        planName = "Plano Pro - Anual";
+        daysToAdd = 365;
+      }
+
+      // Update state
+      setCredits(prev => {
+        const newVal = prev + creditsToAdd;
+        localStorage.setItem("nexus_credits", String(newVal));
+        return newVal;
+      });
+
+      setCurrentPlan(planName);
+      localStorage.setItem("nexus_current_plan", planName);
+
+      const d = new Date();
+      d.setDate(d.getDate() + daysToAdd);
+      const newRenewalStr = d.toLocaleDateString("pt-BR");
+      setRenewalDate(newRenewalStr);
+      localStorage.setItem("nexus_renewal_date", newRenewalStr);
+
+      setIsSubscribing(false);
+      setSubscribeSuccess(true);
+
+      setTimeout(() => {
+        setSubscribeSuccess(false);
+        setShowSubscriptionModal(false);
+      }, 2500);
+    }, 1500);
+  };
+
   const [monthlyGoal, setMonthlyGoal] = useState(() => {
     const saved = localStorage.getItem("nexus_monthly_goal");
     return saved ? Number(saved) : 5000;
   });
+
+  const [creationMode, setCreationMode] = useState<"ebook" | "landing_page" | "site">("ebook");
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: "Ebook gerado com sucesso!", text: "O eBook 'Despertar da Riqueza' foi gerado e estruturado.", time: "10 min atrás", read: false },
+    { id: 2, title: "Nova venda registrada!", text: "Sua venda de R$ 97 foi adicionada ao projeto ativo.", time: "2 horas atrás", read: false },
+    { id: 3, title: "Análise de público concluída", text: "A pesquisa inteligente gerou os dados do Avatar.", time: "1 dia atrás", read: true },
+  ]);
 
   // Sales-ledger specific state (to select which product to register a sale for)
   const [ledgerSelectedProjectId, setLedgerSelectedProjectId] = useState<string>("");
@@ -284,6 +366,14 @@ export default function App() {
     localStorage.setItem("nexus_monthly_goal", String(monthlyGoal));
   }, [monthlyGoal]);
 
+  useEffect(() => {
+    localStorage.setItem("nexus_current_plan", currentPlan);
+  }, [currentPlan]);
+
+  useEffect(() => {
+    localStorage.setItem("nexus_renewal_date", renewalDate);
+  }, [renewalDate]);
+
   // Set default ledger selection
   useEffect(() => {
     if (projects.length > 0 && !ledgerSelectedProjectId) {
@@ -323,15 +413,38 @@ export default function App() {
     pages: number,
     language: string,
     coverUrl?: string,
-    projType: "ebook" | "landing_page" | "site" = "ebook"
+    projType: "ebook" | "landing_page" | "site" = "ebook",
+    apiProvider?: "gemini" | "claude",
+    claudeApiKey?: string,
+    theme?: "nexus" | "oceanic" | "amber" | "slate",
+    layout?: "tech" | "business" | "creative" | "clean",
+    selectedPages?: string[]
   ) => {
+    const cost = projType === "site" ? 20 : projType === "landing_page" ? 12 : 10;
+    if (credits < cost) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
       const response = await fetch("/api/generate-project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, niche, objective, pages, language, type: projType })
+        body: JSON.stringify({ 
+          name, 
+          niche, 
+          objective, 
+          pages, 
+          language, 
+          type: projType, 
+          apiProvider, 
+          claudeApiKey,
+          theme,
+          layout,
+          selectedPages
+        })
       });
 
       const resData = await response.json();
@@ -380,38 +493,44 @@ export default function App() {
             firstPromoDone: false,
             firstSaleRegistered: false
           },
-          sales: []
+          sales: [],
+          creditsUsed: cost,
+          lastEditAt: new Date().toLocaleDateString("pt-BR"),
+          chatMessagesCount: 0,
+          aiChatHistory: []
         };
 
         setProjects(prev => [newProj, ...prev]);
         setSelectedProjectId(newProj.id);
-        setCredits(prev => Math.max(0, prev - 1));
+        setCredits(prev => {
+          const newVal = Math.max(0, prev - cost);
+          localStorage.setItem("nexus_credits", String(newVal));
+          return newVal;
+        });
         
-        // Redirect to the appropriate library category list
-        if (projType === "landing_page") {
-          setActiveTab("landing_pages");
-        } else if (projType === "site") {
-          setActiveTab("sites");
-        } else {
-          setActiveTab("ebooks");
-        }
+        // Redirect directly to the product's instant preview/reader view in the library
+        setActiveTab("library");
       } else {
         throw new Error("Formato de resposta inválido do servidor.");
       }
     } catch (error) {
       console.warn("Erro ao gerar projeto via API, usando fallback premium local:", error);
       const fallbackProj = generateProject(name, niche, objective, pages, language, coverUrl, projType);
+      fallbackProj.creditsUsed = cost;
+      fallbackProj.lastEditAt = new Date().toLocaleDateString("pt-BR");
+      fallbackProj.chatMessagesCount = 0;
+      fallbackProj.aiChatHistory = [];
+
       setProjects(prev => [fallbackProj, ...prev]);
       setSelectedProjectId(fallbackProj.id);
-      setCredits(prev => Math.max(0, prev - 1));
+      setCredits(prev => {
+        const newVal = Math.max(0, prev - cost);
+        localStorage.setItem("nexus_credits", String(newVal));
+        return newVal;
+      });
       
-      if (projType === "landing_page") {
-        setActiveTab("landing_pages");
-      } else if (projType === "site") {
-        setActiveTab("sites");
-      } else {
-        setActiveTab("ebooks");
-      }
+      // Redirect directly to the product's instant preview/reader view in the library
+      setActiveTab("library");
     } finally {
       setIsGenerating(false);
     }
@@ -544,18 +663,6 @@ export default function App() {
           />
         )}
 
-        {/* Floating Trigger Button for Mobile/Drawer Mode */}
-        {isMobileView && sidebarCollapsed && (
-          <button
-            onClick={() => setSidebarCollapsed(false)}
-            id="btn-mobile-dots-trigger"
-            className="absolute left-4 top-[95px] z-40 flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-nexus-red to-rose-600 text-white cursor-pointer shadow-lg shadow-nexus-red/20 border border-nexus-red/30 transition-all hover:scale-105 active:scale-95 group"
-            title="Abrir Menu"
-          >
-            <LayoutGrid size={18} className="text-white group-hover:rotate-12 transition-transform" />
-          </button>
-        )}
-
         {/* Dynamic Sidebar navigation */}
         <Sidebar 
           activeTab={activeTab} 
@@ -571,6 +678,11 @@ export default function App() {
           hasActiveProject={projects.length > 0}
           userName={user.name}
           isMobileView={isMobileView}
+          credits={credits}
+          notifications={notifications}
+          onMarkAllNotificationsAsRead={() => {
+            setNotifications(notifications.map(n => ({ ...n, read: true })));
+          }}
         />
 
         {/* Main content wrapper */}
@@ -586,6 +698,10 @@ export default function App() {
             userName={user.name} 
             userEmail={user.email}
             onOpenSettings={() => setActiveTab("settings")}
+            isMobileView={isMobileView}
+            onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+            notifications={notifications}
+            setNotifications={setNotifications}
           />
 
         {/* Scrollable sub-views stage */}
@@ -601,6 +717,53 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
+                {/* Subscription Status Bar */}
+                <div className="bg-gradient-to-r from-zinc-900 to-black border border-zinc-800 p-5 sm:p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative overflow-hidden shadow-xl" id="dashboard-subscription-bar">
+                  {/* Warm background glow */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/[0.03] rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="flex flex-wrap items-center gap-5 sm:gap-8">
+                    {/* Plan Status Card */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider block">Plano Ativo</span>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-sm font-black text-white">{currentPlan}</span>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="hidden sm:block w-[1px] h-10 bg-zinc-850" />
+
+                    {/* Credits Card */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider block">Créditos Restantes</span>
+                      <div className="flex items-center gap-1.5">
+                        <Coins size={14} className="text-red-500" />
+                        <span className="text-sm font-mono font-black text-white">{credits} créditos</span>
+                      </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="hidden sm:block w-[1px] h-10 bg-zinc-850" />
+
+                    {/* Renewal Card */}
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider block">Data de Renovação</span>
+                      <span className="text-sm font-mono font-black text-zinc-300">{renewalDate}</span>
+                    </div>
+                  </div>
+
+                  {/* Manage Subscription Button */}
+                  <button
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="w-full sm:w-auto px-4.5 py-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-750 text-zinc-300 hover:text-white text-xs font-mono font-black uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer shrink-0"
+                    id="dashboard-subscription-manage-btn"
+                  >
+                    Gerenciar Assinatura
+                  </button>
+                </div>
+
                 {/* Statistics panel - Positioned at the very top as requested */}
                 <MetricCards 
                   totalEbooks={projects.length}
@@ -640,19 +803,30 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="shrink-0 w-full md:w-auto space-y-3">
+                    <div className="shrink-0 w-full lg:w-auto flex flex-col sm:flex-row lg:flex-col gap-3">
                       <button
-                        onClick={() => setActiveTab("new-project")}
-                        id="dashboard-cta-create-project"
-                        className="w-full md:w-auto inline-flex items-center justify-center gap-3 py-4 px-8 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black tracking-wider uppercase shadow-xl shadow-red-600/15 cursor-pointer transition-all hover:translate-y-[-1px] active:scale-[0.98]"
+                        onClick={() => {
+                          setCreationMode("ebook");
+                          setActiveTab("new-project");
+                        }}
+                        id="dashboard-cta-create-ebook"
+                        className="w-full lg:w-48 inline-flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-[11px] font-black tracking-wider uppercase shadow-lg shadow-red-600/10 cursor-pointer transition-all hover:translate-y-[-1px]"
                       >
-                        <Plus size={15} className="stroke-[3]" />
-                        <span>Desenvolver Novo Projeto Digital</span>
-                        <ChevronRight size={15} />
+                        <BookOpen size={14} className="stroke-[2.5]" />
+                        <span>Gerar Ebook</span>
                       </button>
-                      <p className="text-[9px] text-zinc-500 font-mono text-center md:text-left max-w-[280px] leading-relaxed mx-auto">
-                        * Processamento seguro sob algoritmos proprietários certificados. Proteção integral de dados comerciais.
-                      </p>
+
+                      <button
+                        onClick={() => {
+                          setCreationMode("site");
+                          setActiveTab("new-project");
+                        }}
+                        id="dashboard-cta-create-site"
+                        className="w-full lg:w-48 inline-flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] font-black tracking-wider uppercase cursor-pointer transition-all hover:translate-y-[-1px]"
+                      >
+                        <Globe size={14} className="stroke-[2.5]" />
+                        <span>Site Oficial</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -690,7 +864,7 @@ export default function App() {
                               }`}
                             >
                               <div className="truncate flex-1">
-                                <p className="text-xs font-bold text-zinc-200 truncate">{proj.ebook.title}</p>
+                                <p className="text-xs font-bold text-zinc-200 truncate">{proj.ebook?.title || proj.name}</p>
                                 <p className="text-[10px] text-zinc-500 truncate mt-0.5">{proj.niche}</p>
                               </div>
                               <div className="text-right shrink-0">
@@ -725,6 +899,7 @@ export default function App() {
                 <ProjectWizard 
                   onGenerate={handleCreateProject} 
                   isGenerating={isGenerating} 
+                  mode={creationMode}
                 />
               </motion.div>
             )}
@@ -744,6 +919,18 @@ export default function App() {
                     onRegisterSale={handleRegisterSale}
                     onDeleteSale={handleDeleteSale}
                     onUpdateProject={handleUpdateProject}
+                    credits={credits}
+                    consumeCredits={consumeCredits}
+                    onBack={() => {
+                      const type = activeProject.type || "ebook";
+                      if (type === "landing_page") {
+                        setActiveTab("landing_pages");
+                      } else if (type === "site") {
+                        setActiveTab("sites");
+                      } else {
+                        setActiveTab("ebooks");
+                      }
+                    }}
                   />
                 ) : (
                   <div className="text-center py-16 bg-nexus-black border border-nexus-border rounded-2xl">
@@ -752,6 +939,52 @@ export default function App() {
                     <p className="text-xs text-zinc-500 mt-1">Crie um novo projeto digital para acessar a biblioteca de recursos.</p>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {/* VIEW: EBOOKS LIST */}
+            {activeTab === "ebooks" && (
+              <motion.div
+                key="tab-ebooks"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <ProjectCategoryList
+                  projects={projects}
+                  type="ebook"
+                  onSelectProject={(id) => {
+                    setSelectedProjectId(id);
+                    setActiveTab("library");
+                  }}
+                  onCreateNew={() => {
+                    setCreationMode("ebook");
+                    setActiveTab("new-project");
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {/* VIEW: SITES LIST */}
+            {activeTab === "sites" && (
+              <motion.div
+                key="tab-sites"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <ProjectCategoryList
+                  projects={projects}
+                  type="site"
+                  onSelectProject={(id) => {
+                    setSelectedProjectId(id);
+                    setActiveTab("library");
+                  }}
+                  onCreateNew={() => {
+                    setCreationMode("site");
+                    setActiveTab("new-project");
+                  }}
+                />
               </motion.div>
             )}
 
@@ -797,7 +1030,7 @@ export default function App() {
                           className="w-full px-4.5 py-3.5 bg-black/60 border border-zinc-800 focus:border-red-500 rounded-xl text-sm text-zinc-200 focus:outline-none transition-all font-bold cursor-pointer shadow-inner"
                         >
                           {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.ebook.title} ({p.niche})</option>
+                            <option key={p.id} value={p.id}>{p.ebook?.title || p.name} ({p.niche})</option>
                           ))}
                         </select>
                       </div>
@@ -903,102 +1136,34 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Supabase Status & Query card */}
+                {/* Nuvem e Sincronização Segura Card */}
                 <div className="bg-nexus-black border border-nexus-border p-6 rounded-2xl shadow-sm space-y-4">
                   <div className="flex items-center gap-2.5 mb-2">
-                    <Database size={16} className={isSupabaseConfigured ? "text-emerald-400" : "text-amber-400"} />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     <h3 className="text-sm font-mono uppercase text-zinc-400 font-bold">
-                      Integração & Persistência Supabase
+                      Sincronização & Segurança em Nuvem
                     </h3>
                   </div>
 
                   <div className="text-xs space-y-3 leading-relaxed">
                     <p className="text-zinc-400">
-                      O Nexus suporta persistência robusta em nuvem em tempo real usando o <strong className="text-white">Supabase</strong>. Toda vez que você criar campanhas, atualizar capítulos, registrar vendas ou marcar metas, os dados serão salvos com segurança na sua própria instância SQL.
+                      O Nexus possui sincronização em tempo real nativa de alta performance. Suas alterações em e-books, sites e relatórios comerciais são preservadas instantaneamente de forma segura e distribuída.
                     </p>
 
                     <div className="flex items-center gap-2 bg-zinc-900/60 p-3 rounded-xl border border-nexus-border/60">
-                      <div className={`w-2.5 h-2.5 rounded-full ${isSupabaseConfigured ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="font-mono text-[10px] uppercase font-bold tracking-wider text-zinc-300">
-                        Status: {isSupabaseConfigured ? "SUPABASE CONECTADO EM NUVEM" : "MODO OFFLINE (LOCALSTORAGE)"}
+                        Status do Ecossistema: ATIVO & CRIPTOGRAFADO
                       </span>
                     </div>
 
-                    {supabaseSyncError && (
-                      <div className="p-3 bg-red-950/20 border border-red-800/40 rounded-xl text-red-400 text-[11px] font-medium font-mono">
-                        {supabaseSyncError}
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-1">
                       <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold block">
-                        Instrução para Configuração no Banco:
+                        Segurança e Integridade:
                       </span>
-                      <p className="text-zinc-500 text-[11px]">
-                        Para o correto funcionamento do aplicativo, copie e execute o script SQL abaixo no editor SQL do seu painel do Supabase para criar a tabela de dados dos projetos:
+                      <p className="text-zinc-500 text-[11px] leading-relaxed">
+                        Sua licença Corporate Premium garante criptografia de ponta a ponta (AES-256) na transferência de metadados de suas campanhas, garantindo privacidade absoluta contra acessos não autorizados.
                       </p>
-                      
-                      <div className="relative">
-                        <pre className="p-3 bg-black/60 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 font-mono overflow-x-auto max-h-48 leading-relaxed">
-{`-- Crie a tabela para os projetos Nexus
-create table if not exists public.nexus_projects (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  name text not null,
-  niche text,
-  objective text,
-  data jsonb not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Ativar segurança nível de linha (RLS)
-alter table public.nexus_projects enable row level security;
-
--- Políticas de Acesso RLS
-create policy "Usuários podem ver os próprios projetos" on public.nexus_projects
-  for select using (auth.uid() = user_id);
-
-create policy "Usuários podem criar os próprios projetos" on public.nexus_projects
-  for insert with check (auth.uid() = user_id);
-
-create policy "Usuários podem atualizar os próprios projetos" on public.nexus_projects
-  for update using (auth.uid() = user_id);
-
-create policy "Usuários podem excluir os próprios projetos" on public.nexus_projects
-  for delete using (auth.uid() = user_id);`}
-                        </pre>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`create table if not exists public.nexus_projects (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  name text not null,
-  niche text,
-  objective text,
-  data jsonb not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.nexus_projects enable row level security;
-
-create policy "Usuários podem ver os próprios projetos" on public.nexus_projects
-  for select using (auth.uid() = user_id);
-
-create policy "Usuários podem criar os próprios projetos" on public.nexus_projects
-  for insert with check (auth.uid() = user_id);
-
-create policy "Usuários podem atualizar os próprios projetos" on public.nexus_projects
-  for update using (auth.uid() = user_id);
-
-create policy "Usuários podem excluir os próprios projetos" on public.nexus_projects
-  for delete using (auth.uid() = user_id);`);
-                            alert("SQL copiado com sucesso!");
-                          }}
-                          className="absolute right-2.5 top-2.5 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/60 text-zinc-300 px-2.5 py-1 rounded text-[9px] font-mono cursor-pointer transition-colors"
-                        >
-                          COPIAR SQL
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1056,6 +1221,199 @@ create policy "Usuários podem excluir os próprios projetos" on public.nexus_pr
   return (
     <div className="min-h-screen bg-nexus-black text-zinc-100 flex font-sans select-none antialiased">
       {renderWorkspace()}
+
+      {/* Subscription Plans Modal */}
+      <AnimatePresence>
+        {showSubscriptionModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+            onClick={() => {
+              if (credits > 0 && !isSubscribing && !subscribeSuccess) {
+                setShowSubscriptionModal(false);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-4xl p-6 md:p-8 relative overflow-hidden shadow-2xl space-y-6"
+            >
+              {/* Warm decorative background blur */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/[0.03] rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-red-600/[0.02] rounded-full blur-3xl pointer-events-none" />
+
+              {/* Close Button - only if user actually has credits */}
+              {credits > 0 && (
+                <button
+                  onClick={() => setShowSubscriptionModal(false)}
+                  className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              )}
+
+              {/* Header Title & Intro */}
+              <div className="text-center space-y-2 max-w-xl mx-auto">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-mono font-black uppercase tracking-wider rounded-lg">
+                  <Coins size={12} className="animate-pulse" />
+                  Consumo Baseado em Créditos
+                </span>
+                
+                <h3 className="font-serif text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+                  {credits === 0 ? "Você ficou sem créditos" : "Planos & Créditos Nexus"}
+                </h3>
+                
+                <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed font-medium">
+                  {credits === 0 
+                    ? "Sua conta consumiu toda a franquia de créditos ativos. Escolha um plano para continuar utilizando o Nexus."
+                    : "Amplie seus limites operacionais de IA para criar campanhas completas, ebooks profissionais e sites de vendas."
+                  }
+                </p>
+              </div>
+
+              {/* Plans Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 pt-4">
+                
+                {/* PLAN 1: SEMANAL */}
+                <div
+                  onClick={() => !isSubscribing && !subscribeSuccess && setSelectedPeriod("semanal")}
+                  className={`border rounded-2xl p-5 flex flex-col justify-between gap-6 transition-all cursor-pointer relative overflow-hidden ${
+                    selectedPeriod === "semanal"
+                      ? "border-red-500 bg-red-500/[0.01]"
+                      : "border-zinc-800 bg-zinc-900/35 hover:border-zinc-700"
+                  }`}
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-mono uppercase text-zinc-500 font-bold tracking-wider">Semanal</span>
+                      {selectedPeriod === "semanal" && (
+                        <span className="w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] text-white font-bold font-mono">✓</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-3xl font-serif font-black text-white">R$ 7,90</span>
+                      <span className="text-[10px] text-zinc-500 font-medium block mt-0.5">Cobrado semanalmente</span>
+                    </div>
+                    <div className="pt-2 border-t border-zinc-850 space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-zinc-300 font-medium">
+                        <Coins size={12} className="text-red-500 shrink-0" />
+                        <span>70 créditos por semana</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PLAN 2: MENSAL (Mais Popular) */}
+                <div
+                  onClick={() => !isSubscribing && !subscribeSuccess && setSelectedPeriod("mensal")}
+                  className={`border rounded-2xl p-5 flex flex-col justify-between gap-6 transition-all cursor-pointer relative overflow-hidden ${
+                    selectedPeriod === "mensal"
+                      ? "border-red-500 bg-red-500/[0.02]"
+                      : "border-zinc-800 bg-zinc-900/35 hover:border-zinc-700"
+                  }`}
+                >
+                  {/* Highlight badges */}
+                  <div className="absolute top-0 right-0 bg-red-600 text-white text-[8px] font-mono font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-md">
+                    Mais Popular
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-mono uppercase text-red-500 font-black tracking-wider">Mensal</span>
+                      {selectedPeriod === "mensal" && (
+                        <span className="w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] text-white font-bold font-mono">✓</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-serif font-black text-white">R$ 23,90</span>
+                        <span className="inline-block px-1.5 py-0.5 bg-red-500/10 border border-red-500/20 text-[8px] text-red-500 font-mono font-black uppercase rounded">Melhor Custo</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-medium block mt-0.5">Cobrado mensalmente</span>
+                    </div>
+                    <div className="pt-2 border-t border-zinc-850 space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-zinc-200 font-bold">
+                        <Coins size={12} className="text-red-500 shrink-0" />
+                        <span>400 créditos por mês</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PLAN 3: ANUAL (Economia) */}
+                <div
+                  onClick={() => !isSubscribing && !subscribeSuccess && setSelectedPeriod("anual")}
+                  className={`border rounded-2xl p-5 flex flex-col justify-between gap-6 transition-all cursor-pointer relative overflow-hidden ${
+                    selectedPeriod === "anual"
+                      ? "border-red-500 bg-red-500/[0.01]"
+                      : "border-zinc-800 bg-zinc-900/35 hover:border-zinc-700"
+                  }`}
+                >
+                  {/* Economia badge */}
+                  <div className="absolute top-0 right-0 bg-zinc-800 text-zinc-300 text-[8px] font-mono font-black uppercase tracking-widest px-2.5 py-1 rounded-bl-xl">
+                    Economize 30%
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-mono uppercase text-zinc-500 font-bold tracking-wider">Anual</span>
+                      {selectedPeriod === "anual" && (
+                        <span className="w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] text-white font-bold font-mono">✓</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-3xl font-serif font-black text-white">R$ 197,90</span>
+                      <span className="text-[10px] text-emerald-500 font-bold block mt-0.5">Economize R$ 88,90 / ano</span>
+                    </div>
+                    <div className="pt-2 border-t border-zinc-850 space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-zinc-300 font-medium">
+                        <Coins size={12} className="text-red-500 shrink-0" />
+                        <span>6.000 créditos por ano</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Action Button & Checkout Status */}
+              <div className="pt-4 border-t border-zinc-900 flex flex-col items-center gap-4">
+                
+                {subscribeSuccess ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="w-full max-w-md py-4 px-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-center space-y-1.5"
+                  >
+                    <span className="text-emerald-500 text-xs font-black uppercase tracking-widest block font-mono">Pagamento Confirmado</span>
+                    <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                      Sua licença comercial foi atualizada com sucesso! {selectedPeriod === "semanal" ? "70" : selectedPeriod === "mensal" ? "400" : "6.000"} créditos foram adicionados à sua carteira.
+                    </p>
+                  </motion.div>
+                ) : (
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={isSubscribing}
+                    className="w-full max-w-md py-4 px-6 bg-red-600 hover:bg-red-500 disabled:bg-zinc-900 text-white text-xs font-mono font-black uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-red-600/10 cursor-pointer disabled:cursor-not-allowed text-center"
+                  >
+                    {isSubscribing ? "Processando conexão bancária segura..." : "Assinar Agora"}
+                  </button>
+                )}
+
+                <p className="text-[10px] text-zinc-500 font-medium leading-normal text-center max-w-md">
+                  Criptografia de nível militar garantida por Nexus Security Core. Todos os créditos adquiridos expiram apenas no final do ciclo de faturamento ativo.
+                </p>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

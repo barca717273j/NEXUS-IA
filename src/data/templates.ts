@@ -325,7 +325,7 @@ export function generateProject(
   const keyword1 = keywords[0] || "Sucesso";
   const keyword2 = keywords[1] || "Estratégia";
 
-  const title = `Método ${keyword1.charAt(0).toUpperCase() + keyword1.slice(1)} Definitivo`;
+  const title = cleanName;
   const subtitle = `Como atingir seu objetivo de ${cleanObjective.toLowerCase().replace(/ajudar a|ensinar a|ajudar|ensinar/g, "").trim()} com um plano prático, consistente e validado passo a passo.`;
   const summary = `Este manual prático foi cuidadosamente estruturado para guiar você rumo à maestria em ${cleanNiche}. Ele une os fundamentos teóricos de aplicação rápida aos planos de ação diários, permitindo que você supere a estagnação e atinja resultados expressivos em poucos dias, livre de complexidades ou jargões desnecessários.`;
   const introduction = `Seja muito bem-vindo ao ponto de virada da sua jornada. Este livro foi projetado com uma única missão: ser o seu manual operacional definitivo. Se você está cansado de teorias vazias, cursos infinitos e falta de direcionamento prático, as próximas páginas contêm o plano estratégico exato para revolucionar seus resultados.`;

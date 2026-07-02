@@ -4,12 +4,12 @@ import {
   Project, 
   Sale 
 } from "../types";
-import LandingPageModule from "./LandingPageModule";
 import SiteModule from "./SiteModule";
 import ResearchModule from "./ResearchModule";
 import X1Module from "./X1Module";
 import MessagesModule from "./MessagesModule";
 import SettingsModule from "./SettingsModule";
+import AIChatModule from "./AIChatModule";
 import { 
   BookOpen, 
   FileText, 
@@ -43,7 +43,8 @@ import {
   Globe,
   Settings,
   Upload,
-  Image
+  Image,
+  ChevronLeft
 } from "lucide-react";
 
 interface ProjectTabsProps {
@@ -53,6 +54,8 @@ interface ProjectTabsProps {
   onDeleteSale?: (saleId: string) => void;
   onUpdateProject?: (project: Project) => void;
   onBack?: () => void;
+  credits?: number;
+  consumeCredits?: (amount: number) => boolean;
 }
 
 function renderLineSpans(line: string) {
@@ -320,7 +323,9 @@ export default function ProjectTabs({
   onRegisterSale,
   onDeleteSale,
   onUpdateProject,
-  onBack
+  onBack,
+  credits = 0,
+  consumeCredits
 }: ProjectTabsProps) {
   const activeCoverUrl = project.coverLocalUrl || project.coverUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600";
   const [activeTab, setActiveTab] = useState<string>(
@@ -350,6 +355,16 @@ export default function ProjectTabs({
 
   const handleImproveChapter = async () => {
     if (!improveInstructions.trim() || !onUpdateProject) return;
+
+    // Check and consume 2 credits
+    if (consumeCredits) {
+      const success = consumeCredits(2);
+      if (!success) {
+        setShowImproveModal(false);
+        return;
+      }
+    }
+
     setIsImprovingChapter(true);
     setImprovementError(null);
 
@@ -373,6 +388,9 @@ export default function ProjectTabs({
     }
 
     try {
+      const apiProvider = localStorage.getItem("nexus_api_provider") || "gemini";
+      const claudeApiKey = localStorage.getItem("nexus_claude_api_key") || "";
+
       const res = await fetch("/api/improve-chapter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,7 +400,9 @@ export default function ProjectTabs({
           objective: project.objective,
           chapterTitle,
           currentContent,
-          instructions: improveInstructions
+          instructions: improveInstructions,
+          apiProvider,
+          claudeApiKey
         })
       });
 
@@ -475,19 +495,10 @@ export default function ProjectTabs({
 
   // Tabs definitions with clean styling based on project type
   const tabs = (() => {
-    if (project.type === "landing_page") {
-      return [
-        { id: "landingPage", label: "Landing Page", icon: Layout },
-        { id: "research", label: "Pesquisa", icon: Search },
-        { id: "x1", label: "Módulo X1", icon: Users },
-        { id: "messages", label: "Mensagens", icon: MessageSquare },
-        { id: "sales", label: "Vendas", icon: DollarSign },
-        { id: "settings", label: "Configurações", icon: Settings },
-      ] as const;
-    }
     if (project.type === "site") {
       return [
         { id: "site", label: "Site", icon: Globe },
+        { id: "ai_chat", label: "Assistente IA", icon: Sparkles },
         { id: "research", label: "Pesquisa", icon: Search },
         { id: "x1", label: "Módulo X1", icon: Users },
         { id: "messages", label: "Mensagens", icon: MessageSquare },
@@ -497,6 +508,7 @@ export default function ProjectTabs({
     }
     return [
       { id: "ebook", label: "Ebook", icon: BookOpen },
+      { id: "ai_chat", label: "Assistente IA", icon: Sparkles },
       { id: "research", label: "Pesquisa", icon: Search },
       { id: "x1", label: "Módulo X1", icon: Users },
       { id: "messages", label: "Mensagens", icon: MessageSquare },
@@ -551,13 +563,13 @@ export default function ProjectTabs({
             </span>
           </div>
           <h1 className="font-serif text-2xl md:text-3.5xl font-black text-white tracking-tight">
-            {project.ebook.title}
+            {project.ebook?.title || project.name}
           </h1>
           <p className="text-xs text-zinc-400 leading-relaxed font-medium">
             {project.objective}
           </p>
         </div>
-
+ 
         {/* Cover Preview Mini */}
         <div className="flex items-center gap-4 bg-black/40 border border-zinc-800/80 p-3.5 rounded-xl shrink-0">
           <div className="w-11 h-15 bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden relative shadow-lg">
@@ -569,13 +581,29 @@ export default function ProjectTabs({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              renderCSSCover(project.ebook.title, project.ebook.subtitle || "", project.niche, true)
+              renderCSSCover(project.ebook?.title || project.name, project.ebook?.subtitle || "", project.niche, true)
             )}
           </div>
           <div>
-            <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Volume Editorial</p>
-            <p className="text-sm font-black text-white mt-0.5">{project.pages} Páginas</p>
-            <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Idioma: {project.language}</p>
+            {project.type === "ebook" || !project.type ? (
+              <>
+                <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Volume Editorial</p>
+                <p className="text-sm font-black text-white mt-0.5">{project.pages} Páginas</p>
+                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Idioma: {project.language}</p>
+              </>
+            ) : project.type === "landing_page" ? (
+              <>
+                <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Landing Page</p>
+                <p className="text-sm font-black text-white mt-0.5">Pronta p/ Tráfego</p>
+                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Status: Ativo</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[9px] font-mono uppercase text-zinc-500 font-bold tracking-wider">Site Oficial</p>
+                <p className="text-sm font-black text-white mt-0.5">Estruturado</p>
+                <p className="text-[10px] text-zinc-400 font-medium mt-0.5">Status: Ativo</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -632,7 +660,7 @@ export default function ProjectTabs({
                     onClick={() => setActiveChapterIndex(0)}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
                       activeChapterIndex === 0 
-                        ? "border-red-500 bg-red-500/[0.03] shadow-md shadow-red-500/5" 
+                        ? "border-red-500 bg-red-500/15 shadow-md shadow-red-500/15" 
                         : "border-zinc-800 bg-black/30 hover:border-zinc-700/60"
                     }`}
                   >
@@ -649,7 +677,7 @@ export default function ProjectTabs({
                     onClick={() => setActiveChapterIndex(1)}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
                       activeChapterIndex === 1 
-                        ? "border-red-500 bg-red-500/[0.03] shadow-md shadow-red-500/5" 
+                        ? "border-red-500 bg-red-500/15 shadow-md shadow-red-500/15" 
                         : "border-zinc-800 bg-black/30 hover:border-zinc-700/60"
                     }`}
                   >
@@ -668,7 +696,7 @@ export default function ProjectTabs({
                       onClick={() => setActiveChapterIndex(index + 2)}
                       className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
                         activeChapterIndex === index + 2 
-                          ? "border-red-500 bg-red-500/[0.03] shadow-md shadow-red-500/5" 
+                          ? "border-red-500 bg-red-500/15 shadow-md shadow-red-500/15" 
                           : "border-zinc-800 bg-black/30 hover:border-zinc-700/60"
                       }`}
                     >
@@ -686,7 +714,7 @@ export default function ProjectTabs({
                     onClick={() => setActiveChapterIndex(project.ebook.chapters.length + 2)}
                     className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
                       activeChapterIndex === project.ebook.chapters.length + 2 
-                        ? "border-red-500 bg-red-500/[0.03] shadow-md shadow-red-500/5" 
+                        ? "border-red-500 bg-red-500/15 shadow-md shadow-red-500/15" 
                         : "border-zinc-800 bg-black/30 hover:border-zinc-700/60"
                     }`}
                   >
@@ -711,17 +739,34 @@ export default function ProjectTabs({
                       NEXUS LEITOR EDITORIAL
                     </span>
                     {onUpdateProject && (
-                      <button
-                        onClick={() => {
-                          setImprovementError(null);
-                          setShowImproveModal(true);
-                        }}
-                        className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md shadow-red-500/10 ml-2"
-                        title="Melhorar esta seção com Inteligência Artificial"
-                      >
-                        <Sparkles size={11} className="text-white animate-pulse" />
-                        Melhorar com IA
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setImprovementError(null);
+                            setShowImproveModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all shadow-md shadow-red-500/10 ml-2"
+                          title="Melhorar esta seção com Inteligência Artificial"
+                        >
+                          <Sparkles size={11} className="text-white animate-pulse" />
+                          Melhorar com IA
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (consumeCredits) {
+                              const success = consumeCredits(1);
+                              if (!success) return;
+                            }
+                            window.print();
+                          }}
+                          className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-white rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-all"
+                          title="Exportar volume como PDF (Consome 1 crédito)"
+                        >
+                          <Download size={11} className="text-zinc-400" />
+                          Exportar PDF
+                        </button>
+                      </div>
                     )}
                   </div>
                   
@@ -730,14 +775,14 @@ export default function ProjectTabs({
                     <div className="flex border-r border-zinc-800 pr-1.5 mr-1.5">
                       <button 
                         onClick={() => setReaderFont("serif")} 
-                        className={`px-2 py-0.5 rounded text-[10px] font-serif font-bold cursor-pointer transition-colors ${readerFont === "serif" ? "bg-red-500/10 text-red-500" : "text-zinc-500 hover:text-zinc-300"}`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-serif font-bold cursor-pointer transition-colors ${readerFont === "serif" ? "bg-red-500/20 text-red-500" : "text-zinc-500 hover:text-zinc-300"}`}
                         title="Fonte Serifada"
                       >
                         Serif
                       </button>
                       <button 
                         onClick={() => setReaderFont("sans")} 
-                        className={`px-2 py-0.5 rounded text-[10px] font-sans font-bold cursor-pointer transition-colors ${readerFont === "sans" ? "bg-red-500/10 text-red-500" : "text-zinc-500 hover:text-zinc-300"}`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-sans font-bold cursor-pointer transition-colors ${readerFont === "sans" ? "bg-red-500/20 text-red-500" : "text-zinc-500 hover:text-zinc-300"}`}
                         title="Fonte Bastão"
                       >
                         Sans
@@ -747,21 +792,21 @@ export default function ProjectTabs({
                     <div className="flex gap-1.5">
                       <button 
                         onClick={() => setReaderFontSize("sm")} 
-                        className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold cursor-pointer transition-colors ${readerFontSize === "sm" ? "bg-red-500/10 text-red-500 border border-red-500/20" : "text-zinc-500 hover:text-zinc-300"}`}
+                        className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold cursor-pointer transition-colors ${readerFontSize === "sm" ? "bg-red-500/20 text-red-500 border border-red-500/40" : "text-zinc-500 hover:text-zinc-300"}`}
                         title="Texto Pequeno"
                       >
                         A-
                       </button>
                       <button 
                         onClick={() => setReaderFontSize("base")} 
-                        className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold cursor-pointer transition-colors ${readerFontSize === "base" ? "bg-red-500/10 text-red-500 border border-red-500/20" : "text-zinc-500 hover:text-zinc-300"}`}
+                        className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold cursor-pointer transition-colors ${readerFontSize === "base" ? "bg-red-500/20 text-red-500 border border-red-500/40" : "text-zinc-500 hover:text-zinc-300"}`}
                         title="Texto Padrão"
                       >
                         A
                       </button>
                       <button 
                         onClick={() => setReaderFontSize("lg")} 
-                        className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold cursor-pointer transition-colors ${readerFontSize === "lg" ? "bg-red-500/10 text-red-500 border border-red-500/20" : "text-zinc-500 hover:text-zinc-300"}`}
+                        className={`w-5 h-5 rounded flex items-center justify-center text-xs font-bold cursor-pointer transition-colors ${readerFontSize === "lg" ? "bg-red-500/20 text-red-500 border border-red-500/40" : "text-zinc-500 hover:text-zinc-300"}`}
                         title="Texto Grande"
                       >
                         A+
@@ -787,7 +832,7 @@ export default function ProjectTabs({
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-100 transition-opacity" />
                               </>
                             ) : (
-                              renderCSSCover(project.ebook.title, project.ebook.subtitle || "", project.niche)
+                              renderCSSCover(project.ebook?.title || project.name, project.ebook?.subtitle || "", project.niche)
                             )}
                           </div>
                           
@@ -859,11 +904,11 @@ export default function ProjectTabs({
                           </div>
                         </div>
                         <div className="md:col-span-8 space-y-3">
-                          <span className="text-[10px] font-mono tracking-widest text-red-500 font-bold bg-red-500/5 border border-red-500/10 px-2.5 py-1 rounded-full uppercase">
+                          <span className="text-[10px] font-mono tracking-widest text-red-500 font-bold bg-red-500/15 border border-red-500/35 px-2.5 py-1 rounded-full uppercase">
                             EDICÃO ESPECIAL DE LANÇAMENTO
                           </span>
-                          <h2 className="font-serif text-2xl sm:text-3.5xl font-black text-white tracking-tight leading-tight">{project.ebook.title}</h2>
-                          <p className="text-xs sm:text-sm text-zinc-400 font-medium italic">{project.ebook.subtitle}</p>
+                          <h2 className="font-serif text-2xl sm:text-3.5xl font-black text-white tracking-tight leading-tight">{project.ebook?.title || project.name}</h2>
+                          <p className="text-xs sm:text-sm text-zinc-400 font-medium italic">{project.ebook?.subtitle}</p>
                           <div className="pt-4 border-t border-zinc-800/80 flex flex-wrap gap-4 text-[10px] font-mono text-zinc-500 font-bold">
                             <span className="uppercase">Idioma: {project.language}</span>
                             <span>•</span>
@@ -976,16 +1021,21 @@ export default function ProjectTabs({
             </motion.div>
           )}
 
-          {/* LANDING PAGE MODULE */}
-          {activeTab === "landingPage" && (
+          {/* AI CHAT MODULE */}
+          {activeTab === "ai_chat" && (
             <motion.div
-              key="tab-landingPage"
+              key="tab-ai-chat"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="w-full"
             >
-              <LandingPageModule project={project} onUpdateProject={onUpdateProject} />
+              <AIChatModule 
+                project={project} 
+                onUpdateProject={onUpdateProject} 
+                credits={credits}
+                consumeCredits={consumeCredits}
+              />
             </motion.div>
           )}
 

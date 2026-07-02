@@ -66,7 +66,7 @@ export default function SettingsModule({ project, onUpdateProject }: SettingsMod
 
       <div className="pt-4 border-t border-zinc-850 flex justify-between items-center text-[10px] text-zinc-500 font-mono">
         <span>ID DO PROJETO: #{project.id}</span>
-        <span>STATUS DE SERVIDOR: ONLINE</span>
+        <span>SINCRONIA: EM NUVEM ATIVA</span>
       </div>
     </div>
   );

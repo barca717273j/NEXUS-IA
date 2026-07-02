@@ -91,6 +91,9 @@ export interface SiteContent {
   contactPhone: string;
   faqs: { question: string; answer: string }[];
   features: SiteFeature[];
+  theme?: "nexus" | "oceanic" | "amber" | "slate";
+  layout?: "tech" | "business" | "creative" | "clean";
+  pages?: string[];
 }
 
 export interface ProjectMilestones {
@@ -127,6 +130,10 @@ export interface Project {
   };
   milestones: ProjectMilestones;
   sales: Sale[];
+  creditsUsed?: number;
+  lastEditAt?: string;
+  chatMessagesCount?: number;
+  aiChatHistory?: { role: "user" | "model"; content: string; timestamp: string }[];
 }
 
 export interface UserStats {

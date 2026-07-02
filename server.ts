@@ -6,6 +6,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
 
+function cleanJsonResponse(text: string): string {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.substring(7);
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.substring(3);
+  }
+  if (cleaned.endsWith("```")) {
+    cleaned = cleaned.substring(0, cleaned.length - 3);
+  }
+  return cleaned.trim();
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -29,18 +42,25 @@ async function startServer() {
     });
   };
 
-  // API Route to generate project utilizing Gemini AI
+  // API Route to generate project utilizing Gemini or Claude AI
   app.post("/api/generate-project", async (req, res) => {
-    const { name, niche, objective, pages, language, type } = req.body;
+    const { name, niche, objective, pages, language, type, apiProvider, claudeApiKey, theme, layout, selectedPages } = req.body;
 
     if (!name || !niche || !objective) {
       return res.status(400).json({ error: "Parâmetros name, niche e objective são obrigatórios." });
     }
 
     const projType = type || "ebook";
+    const finalProvider = apiProvider || "gemini";
+    const anthropicKey = claudeApiKey || process.env.ANTHROPIC_API_KEY;
+
+    if (finalProvider === "claude" && !anthropicKey) {
+      return res.status(400).json({ error: "Por favor, configure sua chave da API do Claude nas configurações ou informe-a no formulário de geração." });
+    }
+
     const ai = getGeminiClient();
 
-    if (!ai) {
+    if (finalProvider !== "claude" && !ai) {
       // Return a simulated high-quality response if Gemini Key is missing, so the app remains 100% functional
       console.log(`Using local fallback template generator because GEMINI_API_KEY is not defined. Type="${projType}"`);
       return res.status(200).json({
@@ -51,7 +71,7 @@ async function startServer() {
     }
 
     try {
-      console.log(`Generating project with Gemini: Name="${name}", Niche="${niche}", Type="${projType}"`);
+      console.log(`Generating project with ${finalProvider.toUpperCase()}: Name="${name}", Niche="${niche}", Type="${projType}"`);
 
       let prompt = "";
       let responseSchema: any = {};
@@ -384,21 +404,181 @@ Gere a resposta estritamente no formato JSON estruturado respeitando o schema fo
         };
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: responseSchema
+      let parsedData: any;
+
+      if (finalProvider === "claude") {
+        let schemaText = "";
+        if (projType === "landing_page") {
+          schemaText = `
+IMPORTANTE: Você deve responder APENAS com um objeto JSON válido contendo exatamente a chave "landingPage". Não coloque nenhuma explicação externa ao JSON, não use blocos de código com markdown. Responda com o JSON puro que satisfaça o seguinte formato exato de tipos:
+{
+  "landingPage": {
+    "productName": "string",
+    "niche": "string",
+    "objective": "string",
+    "headline": "string",
+    "subheadline": "string",
+    "benefits": ["string", "string", "string"],
+    "problems": ["string", "string", "string"],
+    "solutions": ["string", "string", "string"],
+    "testimonials": [
+      { "name": "string", "role": "string", "text": "string" },
+      { "name": "string", "role": "string", "text": "string" }
+    ],
+    "guarantee": "string",
+    "faqs": [
+      { "question": "string", "answer": "string" },
+      { "question": "string", "answer": "string" }
+    ],
+    "cta": "string"
+  }
+}`;
+        } else if (projType === "site") {
+          schemaText = `
+IMPORTANTE: Você deve responder APENAS com um objeto JSON válido contendo exatamente a chave "site". Não coloque nenhuma explicação externa ao JSON, não use blocos de código com markdown. Responda com o JSON puro que satisfaça o seguinte formato exato de tipos:
+{
+  "site": {
+    "name": "string",
+    "niche": "string",
+    "objective": "string",
+    "heroTitle": "string",
+    "heroSubtitle": "string",
+    "aboutText": "string",
+    "contactEmail": "string",
+    "contactPhone": "string",
+    "faqs": [
+      { "question": "string", "answer": "string" },
+      { "question": "string", "answer": "string" }
+    ],
+    "features": [
+      { "title": "string", "description": "string" },
+      { "title": "string", "description": "string" },
+      { "title": "string", "description": "string" }
+    ]
+  }
+}`;
+        } else {
+          schemaText = `
+IMPORTANTE: Você deve responder APENAS com um objeto JSON válido contendo exatamente as chaves "ebook", "research" e "x1". Não coloque nenhuma explicação externa ao JSON, não use blocos de código com markdown. Responda com o JSON puro que satisfaça o seguinte formato exato de tipos:
+{
+  "ebook": {
+    "title": "string",
+    "subtitle": "string",
+    "summary": "string",
+    "introduction": "string",
+    "conclusion": "string",
+    "cta": "string",
+    "chapters": [
+      { "title": "string", "content": "string" }
+    ]
+  },
+  "research": {
+    "avatar": {
+      "name": "string",
+      "idealAudience": "string",
+      "age": "string",
+      "gender": "string",
+      "profession": "string",
+      "income": "string",
+      "city": "string",
+      "country": "string",
+      "interests": ["string"],
+      "pains": ["string"],
+      "dreams": ["string"]
+    },
+    "objections": ["string"],
+    "tomDeVoz": "string",
+    "palavrasConvertem": ["string"],
+    "promessas": ["string"],
+    "beneficios": ["string"],
+    "argumentos": ["string"]
+  },
+  "x1": {
+    "facebook": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    },
+    "telegram": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    },
+    "whatsapp": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    },
+    "discord": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    },
+    "reddit": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    },
+    "forums": {
+      "category": "string",
+      "communities": [{ "name": "string", "description": "string", "size": "string" }],
+      "templateMessage": "string"
+    }
+  }
+}`;
         }
-      });
 
-      const resultText = response.text;
-      if (!resultText) {
-        throw new Error("Resposta da IA retornou vazia.");
+        console.log(`Calling Anthropic Claude API using model "claude-3-5-sonnet-20241022"...`);
+        const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicKey!,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 4000,
+            system: "Você é um gerador de conteúdo profissional que responde APENAS com JSON estruturado válido. Não inclua nenhuma introdução ou formatação extra.",
+            messages: [
+              {
+                role: "user",
+                content: prompt + "\n" + schemaText
+              }
+            ]
+          })
+        });
+
+        if (!claudeResponse.ok) {
+          const errorText = await claudeResponse.text();
+          throw new Error(`Anthropic API Error: ${claudeResponse.status} - ${errorText}`);
+        }
+
+        const claudeData = await claudeResponse.json() as any;
+        const responseText = claudeData?.content?.[0]?.text;
+        if (!responseText) {
+          throw new Error("Nenhum conteúdo recebido da API do Claude.");
+        }
+
+        const cleanedText = cleanJsonResponse(responseText);
+        parsedData = JSON.parse(cleanedText);
+      } else {
+        const response = await ai!.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema
+          }
+        });
+
+        const resultText = response.text;
+        if (!resultText) {
+          throw new Error("Resposta da IA retornou vazia.");
+        }
+
+        parsedData = JSON.parse(resultText);
       }
-
-      const parsedData = JSON.parse(resultText);
 
       // Construct final object
       const finalProject = {
@@ -414,29 +594,48 @@ Gere a resposta estritamente no formato JSON estruturado respeitando o schema fo
         ...parsedData
       };
 
+      if (projType === "site" && finalProject.site) {
+        finalProject.site.theme = theme || "nexus";
+        finalProject.site.layout = layout || "tech";
+        finalProject.site.pages = selectedPages || ["home", "about", "features", "contact", "faq"];
+      }
+
       return res.status(200).json({ success: true, data: finalProject });
 
     } catch (err: any) {
       console.warn("Error generating project via Gemini:", err);
+      const fallbackData = getFallbackProjectData(name, niche, objective, pages, language, projType);
+      if (projType === "site" && fallbackData.site) {
+        fallbackData.site.theme = theme || "nexus";
+        fallbackData.site.layout = layout || "tech";
+        fallbackData.site.pages = selectedPages || ["home", "about", "features", "contact", "faq"];
+      }
       return res.status(200).json({
         isMock: true,
         message: "Ocorreu um erro no processamento da IA. Usando nosso gerador dinâmico premium de contingência.",
-        data: getFallbackProjectData(name, niche, objective, pages, language, projType)
+        data: fallbackData
       });
     }
   });
 
-  // API Route to improve/rewrite a single chapter with Gemini AI
+  // API Route to improve/rewrite a single chapter with Gemini or Claude AI
   app.post("/api/improve-chapter", async (req, res) => {
-    const { name, niche, objective, chapterTitle, currentContent, instructions } = req.body;
+    const { name, niche, objective, chapterTitle, currentContent, instructions, apiProvider, claudeApiKey } = req.body;
 
     if (!chapterTitle || !currentContent || !instructions) {
       return res.status(400).json({ error: "Parâmetros chapterTitle, currentContent e instructions são obrigatórios." });
     }
 
+    const finalProvider = apiProvider || "gemini";
+    const anthropicKey = claudeApiKey || process.env.ANTHROPIC_API_KEY;
+
+    if (finalProvider === "claude" && !anthropicKey) {
+      return res.status(400).json({ error: "Por favor, configure sua chave da API do Claude nas configurações ou informe-a no formulário de geração." });
+    }
+
     const ai = getGeminiClient();
 
-    if (!ai) {
+    if (finalProvider !== "claude" && !ai) {
       console.log("Using local fallback generator for chapter improvement because GEMINI_API_KEY is missing.");
       return res.status(200).json({
         success: true,
@@ -445,7 +644,7 @@ Gere a resposta estritamente no formato JSON estruturado respeitando o schema fo
     }
 
     try {
-      console.log(`Improving chapter "${chapterTitle}" with Gemini model gemini-3.5-flash`);
+      console.log(`Improving chapter "${chapterTitle}" with ${finalProvider.toUpperCase()}`);
 
       const prompt = `Você é o Nexus Core, redator de elite de infoprodutos de altíssimo padrão e copywriter de resposta direta.
 Sua tarefa é reescrever, enriquecer e melhorar a seção do livro indicada para torná-la extremamente profissional, fluida, rica em conteúdo didático de verdade (passos, métodos, exemplos práticos) e focada em ajudar a vender no direct 1x1 (X1).
@@ -470,12 +669,44 @@ Instruções Estruturais de Saída:
 4. Escreva em português do Brasil (ou no idioma principal do livro se aplicável).
 5. Retorne APENAS o conteúdo de texto da seção reescrito na sua totalidade, pronto para substituição. Não adicione observações, explicações iniciais ou finais, marcadores de bloco de código ou tags de formatação como markdown ou notas adicionais. Responda única e exclusivamente com o texto final reescrito.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt
-      });
+      let improvedText = "";
 
-      let improvedText = response.text;
+      if (finalProvider === "claude") {
+        console.log(`Calling Anthropic Claude API for chapter improvement using model "claude-3-5-sonnet-20241022"...`);
+        const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicKey!,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 4000,
+            messages: [
+              {
+                role: "user",
+                content: prompt
+              }
+            ]
+          })
+        });
+
+        if (!claudeResponse.ok) {
+          const errorText = await claudeResponse.text();
+          throw new Error(`Anthropic API Error: ${claudeResponse.status} - ${errorText}`);
+        }
+
+        const claudeData = await claudeResponse.json() as any;
+        improvedText = claudeData?.content?.[0]?.text || "";
+      } else {
+        const response = await ai!.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: prompt
+        });
+        improvedText = response.text || "";
+      }
+
       if (!improvedText) {
         throw new Error("Resposta de melhoria retornou vazia.");
       }
@@ -489,11 +720,121 @@ Instruções Estruturais de Saída:
       return res.status(200).json({ success: true, improvedContent: improvedText.trim() });
 
     } catch (err: any) {
-      console.warn("Error improving chapter via Gemini:", err);
+      console.warn("Error improving chapter:", err);
       return res.status(200).json({
         success: true,
         improvedContent: `[MELHORADO COM IA (REDUÇÃO DE ERRO Local)]\n\n${currentContent}\n\n*Nota Tática de Melhoria (Foco em X1):* Adicionado viés de autoridade focado nas diretrizes: "${instructions}". Garanta que os gatilhos de transformação única em ${niche || 'sua área'} estejam evidentes ao abordar seu lead.`
       });
+    }
+  });
+
+  // API Route to chat with AI about a specific project
+  app.post("/api/project-chat", async (req, res) => {
+    const { project, messages } = req.body;
+
+    if (!project || !messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Parâmetros project e messages são obrigatórios." });
+    }
+
+    const ai = getGeminiClient();
+
+    if (!ai) {
+      console.log("Using local fallback chat generator because GEMINI_API_KEY is missing.");
+      const lastMsg = messages[messages.length - 1]?.content || "";
+      return res.status(200).json({
+        success: true,
+        reply: `Entendo perfeitamente o contexto do seu projeto "${project.name}" (${project.niche || "Geral"}). 
+
+Como o motor de inteligência artificial de contingência está ativo localmente, aqui está uma orientação tática profissional sobre sua dúvida ("${lastMsg}"):
+
+Para o seu objetivo comercial: "${project.objective || "Vender soluções com alta conversão"}".
+
+Recomendo focar na personalização dos seus capítulos ou seções de forma a atacar diretamente as maiores dores mapeadas do seu público, estruturando um call-to-action irresistível voltado à sua transformação única.`
+      });
+    }
+
+    try {
+      const projectType = project.type || "ebook";
+      let projectContext = `Você é o Assistente IA do Nexus, um especialista premium de elite em copywriting, marketing digital e estratégias de infoprodutos.
+Seu papel é responder às dúvidas, criar novos capítulos, otimizar copies, sugerir novos bônus ou melhorar o texto do projeto abaixo.
+
+Siga estas premissas fundamentais:
+1. Responda em português do Brasil, de forma persuasiva, clara e extremamente profissional.
+2. NUNCA fale sobre tecnologias, APIs, chaves secretas ou detalhes técnicos como Supabase, Claude, Gemini ou banco de dados. O usuário deve acreditar que o ecossistema Nexus resolve tudo de forma automática e integrada.
+3. Se o usuário pedir para reescrever, melhorar, ou sugerir algo (ex: "Melhore o capítulo 2", "Deixe esse Ebook mais profissional", "Escreva de forma mais persuasiva", "Troque o título", "Crie uma oferta", "Crie um bônus", "Melhore o CTA"), entregue exatamente o texto reescrito ou as sugestões práticas prontas para copiar de altíssimo nível.
+4. Baseie-se apenas nas informações fornecidas sobre este projeto específico.
+
+DADOS DO PROJETO EM EDIÇÃO:
+- Nome/Título: "${project.name}"
+- Nicho de Atuação: "${project.niche}"
+- Objetivo Estratégico/Proposta de Valor: "${project.objective}"
+- Tipo de Projeto: ${projectType}
+`;
+
+      if (projectType === "ebook" && project.ebook) {
+        projectContext += `\nCONTEÚDO ATUAL DO EBOOK:
+- Título Oficial: "${project.ebook.title}"
+- Subtítulo Oficial: "${project.ebook.subtitle}"
+- Resumo Comercial: "${project.ebook.summary}"
+- Introdução: "${project.ebook.introduction}"
+- Conclusão: "${project.ebook.conclusion}"
+- Chamada para Ação (CTA): "${project.ebook.cta}"
+- Capítulos do Livro:\n`;
+        project.ebook.chapters?.forEach((ch: any, idx: number) => {
+          projectContext += `  * Capítulo ${idx + 1}: "${ch.title}"\n    Conteúdo parcial: "${ch.content.substring(0, 800)}${ch.content.length > 800 ? "..." : ""}"\n`;
+        });
+      }
+
+      if (project.landingPage) {
+        projectContext += `\nCONTEÚDO ATUAL DA LANDING PAGE:
+- Headline: "${project.landingPage.headline}"
+- Subheadline: "${project.landingPage.subheadline}"
+- Benefícios: ${JSON.stringify(project.landingPage.benefits)}
+- Problemas: ${JSON.stringify(project.landingPage.problems)}
+- Soluções: ${JSON.stringify(project.landingPage.solutions)}
+- Chamada para Ação (CTA): "${project.landingPage.cta}"
+`;
+      }
+
+      if (project.site) {
+        projectContext += `\nCONTEÚDO ATUAL DO SITE INSTITUCIONAL:
+- Título Principal (Hero): "${project.site.heroTitle}"
+- Subtítulo Principal (Hero): "${project.site.heroSubtitle}"
+- Texto "Sobre Nós": "${project.site.aboutText}"
+- Diferenciais do Negócio: ${JSON.stringify(project.site.features)}
+- Páginas Ativas: ${JSON.stringify(project.site.pages)}
+`;
+      }
+
+      if (project.research) {
+        projectContext += `\nESTRATÉGIA DE AVATAR (PESQUISA):
+- Nome do Avatar: "${project.research.avatar?.name}" (${project.research.avatar?.idealAudience}, ${project.research.avatar?.age} anos, ${project.research.avatar?.profession})
+- Dores Mapeadas: ${JSON.stringify(project.research.avatar?.pains)}
+- Desejos Principais: ${JSON.stringify(project.research.avatar?.dreams)}
+- Objeções e Quebras: ${JSON.stringify(project.research.objections)}
+`;
+      }
+
+      // Convert history format to Gemini SDK standard
+      const formattedContents = messages.map((m: any) => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content || m.text || "" }]
+      }));
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: formattedContents,
+        config: {
+          systemInstruction: projectContext,
+        }
+      });
+
+      const reply = response.text || "Não consegui processar a resposta agora.";
+      return res.status(200).json({ success: true, reply });
+
+    } catch (err: any) {
+      console.error("Erro na API de chat de projeto:", err);
+      return res.status(500).json({ error: "Erro interno no servidor ao processar chat do projeto." });
     }
   });
 

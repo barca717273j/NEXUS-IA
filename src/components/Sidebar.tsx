@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
-  MoreVertical
+  MoreVertical,
+  Bell
 } from "lucide-react";
 
 interface SidebarProps {
@@ -24,6 +25,9 @@ interface SidebarProps {
   hasActiveProject: boolean;
   userName?: string;
   isMobileView?: boolean;
+  credits: number;
+  notifications: Array<{ id: number; title: string; text: string; time: string; read: boolean }>;
+  onMarkAllNotificationsAsRead: () => void;
 }
 
 export default function Sidebar({ 
@@ -34,14 +38,16 @@ export default function Sidebar({
   setCollapsed,
   hasActiveProject,
   userName = "JD",
-  isMobileView = false
+  isMobileView = false,
+  credits,
+  notifications,
+  onMarkAllNotificationsAsRead
 }: SidebarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "ebooks", label: "Meus Ebooks", icon: BookOpen },
-    { id: "landing_pages", label: "Landing Pages", icon: Layout },
     { id: "sites", label: "Sites", icon: Globe },
     { id: "sales-ledger", label: "Registrar Venda", icon: CircleDollarSign },
   ];
@@ -166,6 +172,103 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      {/* Resources & Status Section */}
+      <div className="px-3 py-2 space-y-4">
+        {!collapsed ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-4"
+          >
+            {/* Credits Panel */}
+            <div className="bg-zinc-950/60 border border-nexus-border/60 p-3 rounded-xl space-y-2 shadow-inner">
+              <div className="flex justify-between items-center text-[10px] font-mono font-bold text-zinc-400">
+                <span className="flex items-center gap-1.5 uppercase tracking-wider">
+                  <Zap size={11} className="text-red-500 fill-red-500/20 animate-pulse" />
+                  Créditos Ativos
+                </span>
+                <span className="text-white font-black">{credits} / 100</span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                <div 
+                  className="h-full bg-gradient-to-r from-red-600 to-red-500 rounded-full transition-all duration-500" 
+                  style={{ width: `${credits}%` }} 
+                />
+              </div>
+            </div>
+
+            {/* Notifications Panel */}
+            <div className="bg-zinc-950/60 border border-nexus-border/60 p-3 rounded-xl space-y-2 shadow-inner">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-mono font-bold text-zinc-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Bell size={11} className="text-red-500" />
+                  Notificações
+                </span>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <button 
+                    onClick={onMarkAllNotificationsAsRead}
+                    className="text-[9px] font-mono font-black text-red-500 hover:text-red-400 hover:underline transition-colors cursor-pointer uppercase"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+              
+              <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
+                {notifications.length === 0 ? (
+                  <p className="text-[9px] text-zinc-600 font-medium italic text-center py-2">Sem novas notificações</p>
+                ) : (
+                  notifications.slice(0, 2).map((notif) => (
+                    <div key={notif.id} className="text-[9.5px] bg-zinc-900/40 p-2 rounded-lg border border-nexus-border/30">
+                      <div className="flex justify-between items-start gap-1">
+                        <span className={`font-bold truncate ${notif.read ? "text-zinc-500" : "text-zinc-300"}`}>
+                          {notif.title}
+                        </span>
+                        {!notif.read && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 mt-1" />
+                        )}
+                      </div>
+                      <p className="text-[9px] text-zinc-500 line-clamp-1 mt-0.5">{notif.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          /* Collapsed Icons representing Credits & Notifications with Tooltips */
+          <div className="flex flex-col items-center gap-3 py-1">
+            {/* Credits Icon */}
+            <div className="group relative">
+              <div className="w-8 h-8 rounded-lg bg-zinc-950 border border-nexus-border/80 flex items-center justify-center text-red-500 cursor-help transition-all hover:scale-105 shadow-sm">
+                <Zap size={13} className="animate-pulse" />
+              </div>
+              {/* Tooltip */}
+              <div className="absolute left-12 top-1/2 -translate-y-1/2 scale-0 group-hover:scale-100 transition-transform bg-nexus-card text-zinc-100 text-[10px] font-mono px-2.5 py-1.5 rounded border border-nexus-border whitespace-nowrap z-50 shadow-xl font-bold">
+                Créditos: <span className="text-red-500 font-black">{credits}/100</span>
+              </div>
+            </div>
+
+            {/* Notifications Bell Icon */}
+            <div className="group relative">
+              <button 
+                onClick={onMarkAllNotificationsAsRead}
+                className="w-8 h-8 rounded-lg bg-zinc-950 border border-nexus-border/80 flex items-center justify-center text-zinc-400 hover:text-white transition-all hover:scale-105 cursor-pointer relative shadow-sm"
+              >
+                <Bell size={13} />
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
+                )}
+              </button>
+              {/* Tooltip */}
+              <div className="absolute left-12 top-1/2 -translate-y-1/2 scale-0 group-hover:scale-100 transition-transform bg-nexus-card text-zinc-100 text-[10px] font-mono px-2.5 py-1.5 rounded border border-nexus-border whitespace-nowrap z-50 shadow-xl font-bold">
+                Notificações: <span className="text-red-500 font-black">{notifications.filter(n => !n.read).length} pendentes</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Spacer to push controls to the bottom */}
       <div className="flex-1" />

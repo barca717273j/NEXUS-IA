@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Settings, CreditCard, User, HelpCircle, CheckCircle } from "lucide-react";
+import { Bell, Settings, CreditCard, User, HelpCircle, CheckCircle, MoreVertical, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface HeaderProps {
@@ -7,21 +7,24 @@ interface HeaderProps {
   userName: string;
   userEmail: string;
   onOpenSettings: () => void;
+  isMobileView?: boolean;
+  onToggleSidebar?: () => void;
+  notifications: Array<{ id: number; title: string; text: string; time: string; read: boolean }>;
+  setNotifications: (notifications: any) => void;
 }
 
 export default function Header({ 
   credits, 
   userName, 
   userEmail, 
-  onOpenSettings
+  onOpenSettings,
+  isMobileView = false,
+  onToggleSidebar,
+  notifications,
+  setNotifications
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "Ebook gerado com sucesso!", text: "O eBook 'Despertar da Riqueza' foi gerado e estruturado.", time: "10 min atrás", read: false },
-    { id: 2, title: "Nova venda registrada!", text: "Sua venda de R$ 97 foi adicionada ao projeto ativo.", time: "2 horas atrás", read: false },
-    { id: 3, title: "Análise de público concluída", text: "A pesquisa inteligente gerou os dados do Avatar.", time: "1 dia atrás", read: true },
-  ]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -32,7 +35,17 @@ export default function Header({
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between w-full h-16 px-4 sm:px-6 bg-nexus-black/95 backdrop-blur-md border-b border-nexus-border">
       {/* Brand Label/Logo for mobile or breadcrumb */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {isMobileView && onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            id="btn-mobile-dots-header-trigger"
+            className="flex items-center justify-center h-10 w-10 rounded-xl bg-zinc-900 border border-nexus-border hover:border-nexus-red text-zinc-400 hover:text-white transition-all cursor-pointer shadow-md shrink-0 active:scale-95"
+            title="Menu de Navegação"
+          >
+            <MoreVertical size={18} className="text-zinc-400" />
+          </button>
+        )}
         <div className="flex items-center gap-2 border-r border-nexus-border/60 pr-4">
           <span className="text-[10px] tracking-widest font-mono text-zinc-500 uppercase block md:hidden">
             NEXUS
